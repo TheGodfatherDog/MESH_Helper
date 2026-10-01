@@ -171,6 +171,81 @@
         return [2, 3, 4, 5].includes(fixed) ? fixed : calculatedGrade;
     }
 
+    function normalizeSearchText(value) {
+        return String(value ?? '')
+            .toLowerCase()
+            .replace(/ё/g, 'е')
+            .replace(/[^a-zа-я0-9\s-]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    function toNameKey(value) {
+        const parts = normalizeSearchText(value).split(' ').filter(Boolean);
+        if (parts.length < 2) return '';
+        return `${parts[0]} ${parts[1]}`;
+    }
+
+    function parseNoPortalInput(text) {
+        const entries = [];
+        const invalid = [];
+        const seen = new Set();
+        String(text ?? '').split(/[,;\n]+/).forEach(chunk => {
+            const label = chunk.trim().replace(/\s+/g, ' ');
+            if (!label) return;
+            const key = toNameKey(label);
+            if (!key) {
+                invalid.push(label);
+                return;
+            }
+            if (seen.has(key)) return;
+            seen.add(key);
+            entries.push({ key, label: label.split(' ').slice(0, 2).join(' ') });
+        });
+        return { entries, invalid };
+    }
+
+    function normalizeNoPortalList(value) {
+        const map = new Map();
+        (Array.isArray(value) ? value : []).forEach(item => {
+            const source = typeof item === 'string' ? item : item?.label || item?.name || item?.key || '';
+            const label = String(source).trim().replace(/\s+/g, ' ');
+            const key = toNameKey(typeof item === 'string' ? item : item?.key || label);
+            if (!key || !label) return;
+            const visible = label.split(' ').slice(0, 2).join(' ') || label;
+            map.set(key, { key, label: visible });
+        });
+        return [...map.values()].sort((left, right) => left.label.localeCompare(right.label, 'ru'));
+    }
+
+    function mergeNoPortalEntries(existing, incoming) {
+        const map = new Map(normalizeNoPortalList(existing).map(item => [item.key, item]));
+        let added = 0;
+        (incoming || []).forEach(item => {
+            if (!item?.key) return;
+            if (map.has(item.key)) map.set(item.key, { key: item.key, label: item.label || map.get(item.key).label });
+            else {
+                added += 1;
+                map.set(item.key, { key: item.key, label: item.label || item.key });
+            }
+        });
+        return { list: normalizeNoPortalList([...map.values()]), added };
+    }
+
+    function studentHasNoPortalAccess(student, entries) {
+        const keys = new Set(
+            (Array.isArray(entries) ? entries : [])
+                .map(item => (typeof item === 'string' ? toNameKey(item) : item?.key))
+                .filter(Boolean)
+        );
+        if (!keys.size || !student) return '';
+        const candidates = [
+            toNameKey(`${student.lastName || ''} ${student.firstName || ''}`),
+            toNameKey(student.fullName || '')
+        ];
+        return candidates.find(key => key && keys.has(key)) || '';
+    }
+
     window.MESH_AUTO_GRADING_CORE = Object.freeze({
         calculateGrade,
         formatIsoDate,
@@ -180,8 +255,13 @@
         getEffectiveDeadline,
         getLateGrade,
         isPastHomework,
+        mergeNoPortalEntries,
+        normalizeNoPortalList,
+        parseNoPortalInput,
         parsePortalDate,
+        studentHasNoPortalAccess,
         summarizeAttempts,
+        toNameKey,
         validateThresholds
     });
 })();

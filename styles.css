@@ -1107,10 +1107,98 @@ td.mshhlpr-final-correct *, td.mshhlpr-final-missing *, td.mshhlpr-final-wrong *
     white-space: nowrap;
 }
 
+.mshhlpr-ag-section-with-help {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.mshhlpr-ag-mini-btn {
+    padding: 7px 10px;
+    color: #237a36;
+    background: #fff;
+    border: 1px solid #b7d4be;
+    border-radius: 6px;
+    font: 600 12px/1.2 'Segoe UI', sans-serif;
+    cursor: pointer;
+}
+
+.mshhlpr-ag-mini-btn:hover,
+.mshhlpr-ag-mini-btn:focus-visible {
+    color: #fff;
+    background: #2e7d32;
+    border-color: #2e7d32;
+    outline: none;
+}
+
+.mshhlpr-ag-no-portal-note,
+.mshhlpr-ag-no-portal-empty,
+.mshhlpr-ag-inline-status {
+    margin: 0;
+    color: #77817a;
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.mshhlpr-ag-inline-status { min-height: 14px; }
+.mshhlpr-ag-inline-status.is-success { color: #2e7d32; }
+.mshhlpr-ag-inline-status.is-warning { color: #a45b00; }
+
+.mshhlpr-ag-no-portal-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 148px;
+    margin: 0;
+    padding: 0;
+    overflow: auto;
+    list-style: none;
+}
+
+.mshhlpr-ag-no-portal-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 5px 7px;
+    background: #fff;
+    border: 1px solid #e2e7e3;
+    border-radius: 6px;
+    font-size: 12px;
+}
+
+.mshhlpr-ag-grade {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.mshhlpr-ag-restore {
+    margin-left: 6px;
+    padding: 0;
+    color: #1565c0;
+    background: transparent;
+    border: 0;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.mshhlpr-ag-restore:hover,
+.mshhlpr-ag-restore:focus-visible {
+    color: #0d47a1;
+    outline: none;
+}
+
 .mshhlpr-ag-badge-success { color: #237a36; background: #e7f6ea; }
 .mshhlpr-ag-badge-warning { color: #975500; background: #fff1d8; }
 .mshhlpr-ag-badge-danger { color: #b32929; background: #fde9e9; }
 .mshhlpr-ag-badge-muted { color: #626b65; background: #edf0ee; }
+.mshhlpr-ag-badge-portal { color: #69448f; background: #f3eef8; }
 .mshhlpr-ag-action-create { color: #237a36; }
 .mshhlpr-ag-action-update { color: #1565c0; }
 .mshhlpr-ag-action-skip { color: #7d867f; }

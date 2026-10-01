@@ -6,6 +6,8 @@ window.initAutoGrading = function () {
     const MODAL_ID = 'mshhlpr-auto-grading-modal';
     const HELP_TOOLTIP_ID = 'mshhlpr-auto-grading-tooltip';
     const SETTINGS_KEY = 'meshAutoGradingSettings';
+    const NO_PORTAL_KEY = 'meshAutoGradingNoPortal';
+    const NO_PORTAL_TIP = 'У ученика нет доступа к порталу, поэтому отметка за ЦДЗ не выставляется. Если доступ появился, нажмите «Есть доступ» — отметка будет рассчитана по обычным правилам.';
     const REQUEST_TIMEOUT_MS = 20000;
     const CORE_API = 'https://authedu.mosreg.ru/api/ej/core/teacher/v1';
     const PLAN_API = 'https://authedu.mosreg.ru/api/ej/plan/teacher/v1';
@@ -34,6 +36,7 @@ window.initAutoGrading = function () {
     });
 
     let activeModalState = null;
+    let noPortalList = [];
     let lastPathname = '';
     let routeCheckScheduled = false;
 
@@ -216,6 +219,78 @@ window.initAutoGrading = function () {
         await chrome.storage.local.set({ [SETTINGS_KEY]: settings });
     }
 
+    async function readNoPortalList() {
+        const stored = await chrome.storage.local.get([NO_PORTAL_KEY]);
+        noPortalList = core.normalizeNoPortalList(stored[NO_PORTAL_KEY]);
+        return noPortalList;
+    }
+
+    async function saveNoPortalList(list) {
+        noPortalList = core.normalizeNoPortalList(list);
+        await chrome.storage.local.set({ [NO_PORTAL_KEY]: noPortalList });
+        return noPortalList;
+    }
+
+    function studentNameFromProfile(profile) {
+        return {
+            lastName: profile.last_name || profile.user?.last_name || '',
+            firstName: profile.first_name || profile.user?.first_name || '',
+            fullName: getProfileName(profile)
+        };
+    }
+
+    function applyRowDecision(row, settings) {
+        const existingMark = row.existingMark;
+        let proposedGrade = row.isCompleted
+            ? core.getLateGrade(row.calculation.finalGrade, row.isLate, settings)
+            : (settings.missingMode === '2' ? 2 : null);
+        let action = existingMark ? 'update' : 'create';
+        let reason = '';
+
+        if (row.noPortalAccess) {
+            proposedGrade = null;
+            action = 'skip';
+            reason = 'Нет доступа к порталу';
+        } else if (settings.skipAbsent && row.absent) {
+            proposedGrade = null;
+            action = 'skip';
+            reason = 'Отсутствовал на целевом уроке';
+        } else if (existingMark && settings.existingMode === 'skip') {
+            proposedGrade = null;
+            action = 'skip';
+            reason = `Уже стоит ${existingMark.name}`;
+        } else if (!row.hasDeadline && !row.isCompleted) {
+            proposedGrade = null;
+            action = 'skip';
+            reason = 'Нет дедлайна';
+        } else if (!row.isCompleted && settings.missingMode === 'skip') {
+            proposedGrade = null;
+            action = 'skip';
+            reason = 'ЦДЗ не выполнено';
+        } else if (row.isLate && settings.lateMode === 'skip') {
+            proposedGrade = null;
+            action = 'skip';
+            reason = 'Выполнено после дедлайна';
+        } else if (existingMark && Number(existingMark.name) === Number(proposedGrade)) {
+            action = 'skip';
+            reason = 'Отметка уже совпадает';
+        }
+
+        row.proposedGrade = proposedGrade;
+        row.action = action;
+        row.reason = reason;
+    }
+
+    function refreshPreviewAccess(modal) {
+        if (!activeModalState?.rows) return;
+        activeModalState.rows.forEach(row => {
+            row.noPortalKey = core.studentHasNoPortalAccess(row.studentName, noPortalList);
+            row.noPortalAccess = Boolean(row.noPortalKey);
+            applyRowDecision(row, activeModalState.settings);
+        });
+        renderPreview(modal, activeModalState);
+    }
+
     async function getCurrentHomework() {
         const homeworkId = getHomeworkIdFromPath();
         if (!homeworkId) throw new Error('Откройте страницу конкретного домашнего задания.');
@@ -390,41 +465,13 @@ window.initAutoGrading = function () {
             const absent = isAbsentOnLesson(attendances, profile.id, scheduleItem.id);
             const isCompleted = summary.testsCount > 0 && summary.maxScore > 0;
             const isLate = Boolean(isCompleted && summary.firstCompletedAt && deadline && summary.firstCompletedAt > deadline);
-            let proposedGrade = isCompleted
-                ? core.getLateGrade(calculation.finalGrade, isLate, settings)
-                : (settings.missingMode === '2' ? 2 : null);
-            let action = existingMark ? 'update' : 'create';
-            let reason = '';
-
-            if (settings.skipAbsent && absent) {
-                proposedGrade = null;
-                action = 'skip';
-                reason = 'Отсутствовал на целевом уроке';
-            } else if (existingMark && settings.existingMode === 'skip') {
-                proposedGrade = null;
-                action = 'skip';
-                reason = `Уже стоит ${existingMark.name}`;
-            } else if (!deadline && !isCompleted) {
-                proposedGrade = null;
-                action = 'skip';
-                reason = 'Нет дедлайна';
-            } else if (!isCompleted && settings.missingMode === 'skip') {
-                proposedGrade = null;
-                action = 'skip';
-                reason = 'ЦДЗ не выполнено';
-            } else if (isLate && settings.lateMode === 'skip') {
-                proposedGrade = null;
-                action = 'skip';
-                reason = 'Выполнено после дедлайна';
-            } else if (existingMark && Number(existingMark.name) === Number(proposedGrade)) {
-                action = 'skip';
-                reason = 'Отметка уже совпадает';
-            }
-
-            return {
+            const studentName = studentNameFromProfile(profile);
+            const noPortalKey = core.studentHasNoPortalAccess(studentName, noPortalList);
+            const row = {
                 key: `${homework.id}:${profile.id}`,
                 homework,
                 profile,
+                studentName,
                 group,
                 scheduleItem,
                 controlForm,
@@ -433,12 +480,14 @@ window.initAutoGrading = function () {
                 absent,
                 isCompleted,
                 isLate,
+                hasDeadline: Boolean(deadline),
+                noPortalKey,
+                noPortalAccess: Boolean(noPortalKey),
                 summary,
-                calculation,
-                proposedGrade,
-                action,
-                reason
+                calculation
             };
+            applyRowDecision(row, settings);
+            return row;
         });
 
         return { rows, warning: '' };
@@ -467,6 +516,7 @@ window.initAutoGrading = function () {
     }
 
     function getStatusBadge(row) {
+        if (row.noPortalAccess) return '<span class="mshhlpr-ag-badge mshhlpr-ag-badge-portal">Нет доступа</span>';
         if (row.absent) return '<span class="mshhlpr-ag-badge mshhlpr-ag-badge-muted">Отсутствовал</span>';
         if (!row.isCompleted) return '<span class="mshhlpr-ag-badge mshhlpr-ag-badge-danger">Не выполнено</span>';
         if (row.isLate) return '<span class="mshhlpr-ag-badge mshhlpr-ag-badge-warning">Просрочено</span>';
@@ -479,12 +529,14 @@ window.initAutoGrading = function () {
         const applyButton = modal.querySelector('#msh-ag-apply');
         const actionable = state.rows.filter(row => row.action === 'create' || row.action === 'update');
         const homeworksCount = new Set(state.rows.map(row => row.homework.id)).size;
+        const noPortalCount = state.rows.filter(row => row.noPortalAccess).length;
 
         summary.innerHTML = `
             <span><b>${homeworksCount}</b> ЦДЗ</span>
             <span><b>${state.rows.length}</b> учеников</span>
             <span><b>${actionable.length}</b> изменений</span>
             <span><b>${state.rows.filter(row => row.action === 'skip').length}</b> пропусков</span>
+            ${noPortalCount ? `<span><b>${noPortalCount}</b> без доступа</span>` : ''}
         `;
 
         if (!state.rows.length) {
@@ -498,7 +550,14 @@ window.initAutoGrading = function () {
                 ? `${Math.round(row.summary.score / row.summary.maxScore * 100)}%`
                 : '—';
             const grade = row.proposedGrade ?? '—';
+            const existingGrade = row.existingMark ? escapeHtml(row.existingMark.name) : '—';
+            const gradeCell = row.noPortalAccess
+                ? `<span class="mshhlpr-ag-grade">${existingGrade} → <b>—</b> ${helpButton(NO_PORTAL_TIP, 'Почему отметка не выставляется')}</span>`
+                : `<span class="mshhlpr-ag-grade">${existingGrade} → <b>${grade}</b></span>`;
             const actionText = row.action === 'update' ? 'Перевыставить' : row.action === 'create' ? 'Выставить' : row.reason;
+            const actionCell = row.noPortalAccess
+                ? `Не выставлять <button type="button" class="mshhlpr-ag-restore" data-msh-ag-restore="${escapeHtml(row.noPortalKey)}">Есть доступ</button>`
+                : escapeHtml(actionText);
             return `
                 <tr>
                     <td>${escapeHtml(getProfileName(row.profile))}</td>
@@ -507,8 +566,8 @@ window.initAutoGrading = function () {
                     <td>${getStatusBadge(row)}</td>
                     <td>${row.summary.score}/${row.summary.maxScore || '—'} <small>${percentage}</small></td>
                     <td>${row.summary.attemptsCount}${row.summary.extraAttempts ? ` <small>(+${row.summary.extraAttempts})</small>` : ''}</td>
-                    <td>${row.existingMark ? escapeHtml(row.existingMark.name) : '—'} → <b>${grade}</b></td>
-                    <td class="mshhlpr-ag-action-${row.action}">${escapeHtml(actionText)}</td>
+                    <td>${gradeCell}</td>
+                    <td class="mshhlpr-ag-action-${row.action}">${actionCell}</td>
                 </tr>`;
         }).join('');
         applyButton.disabled = actionable.length === 0;
@@ -531,7 +590,77 @@ window.initAutoGrading = function () {
         status.className = 'mshhlpr-ag-status is-error';
     }
 
+    function renderNoPortalList(modal, list = noPortalList) {
+        const container = modal.querySelector('#msh-ag-no-portal-list');
+        if (!container) return;
+        if (!list.length) {
+            container.innerHTML = '<p class="mshhlpr-ag-no-portal-empty">Пока никого. Впишите фамилию и имя через запятую.</p>';
+            return;
+        }
+        container.innerHTML = `<ul class="mshhlpr-ag-no-portal-list">${list.map(item => `
+            <li class="mshhlpr-ag-no-portal-item">
+                <span>${escapeHtml(item.label)}</span>
+                <button type="button" class="mshhlpr-ag-restore" data-msh-ag-restore="${escapeHtml(item.key)}">Есть доступ</button>
+            </li>`).join('')}</ul>`;
+    }
+
+    function setNoPortalStatus(modal, text, kind = '') {
+        const status = modal.querySelector('#msh-ag-no-portal-status');
+        if (!status) return;
+        status.textContent = text;
+        status.className = `mshhlpr-ag-inline-status${kind ? ` is-${kind}` : ''}`;
+    }
+
+    async function commitNoPortalInput(modal, { silentIfEmpty = false } = {}) {
+        const textarea = modal.querySelector('#msh-ag-no-portal-input');
+        const text = textarea?.value || '';
+        if (!text.trim()) {
+            if (!silentIfEmpty) setNoPortalStatus(modal, 'Введите фамилии и имена через запятую.', 'warning');
+            return noPortalList;
+        }
+
+        const parsed = core.parseNoPortalInput(text);
+        let merged = { list: noPortalList, added: 0 };
+        if (parsed.entries.length) {
+            merged = core.mergeNoPortalEntries(noPortalList, parsed.entries);
+            await saveNoPortalList(merged.list);
+            renderNoPortalList(modal);
+            refreshPreviewAccess(modal);
+        }
+        textarea.value = parsed.invalid.join(', ');
+
+        const messages = [];
+        if (parsed.entries.length) {
+            messages.push(merged.added ? `Без доступа к порталу: ${merged.added}` : 'Эти ученики уже отмечены');
+            if (activeModalState?.rows) {
+                const keys = new Set(parsed.entries.map(item => item.key));
+                const found = new Set(activeModalState.rows
+                    .filter(row => keys.has(row.noPortalKey))
+                    .map(row => row.noPortalKey)).size;
+                messages.push(`В текущей таблице найдено: ${found}`);
+            }
+        }
+        if (parsed.invalid.length) messages.push(`Нужны фамилия и имя: ${parsed.invalid.join(', ')}`);
+        setNoPortalStatus(
+            modal,
+            messages.join('. ') + (messages.length ? '.' : ''),
+            parsed.invalid.length && !parsed.entries.length ? 'warning' : 'success'
+        );
+        return noPortalList;
+    }
+
+    async function restorePortalAccess(modal, key) {
+        const current = noPortalList.find(item => item.key === key);
+        if (!current) return;
+        await saveNoPortalList(noPortalList.filter(item => item.key !== key));
+        renderNoPortalList(modal);
+        refreshPreviewAccess(modal);
+        setNoPortalStatus(modal, `${current.label}: доступ к порталу есть, отметка считается как обычно.`, 'success');
+    }
+
     async function loadPreview(modal) {
+        await readNoPortalList();
+        await commitNoPortalInput(modal, { silentIfEmpty: true });
         const settings = readForm(modal);
         const validationError = core.validateThresholds(settings);
         if (validationError) return showError(modal, new Error(validationError));
@@ -802,6 +931,20 @@ window.initAutoGrading = function () {
                                 <option value="5">Поставить 5</option>
                             </select>
                         </label>
+
+                        <div class="mshhlpr-section-title mshhlpr-ag-section-with-help">
+                            <span>Нет доступа к порталу</span>
+                            ${helpButton('Список учеников без доступа к порталу хранится в этом браузере. При расчёте им не выставляется отметка за ЦДЗ. Кнопка «Есть доступ» снимает отметку, и оценка считается по обычным правилам.', 'Ученики без доступа к порталу')}
+                        </div>
+                        <label class="mshhlpr-form-group">
+                            <span class="mshhlpr-form-label">Фамилия и имя через запятую</span>
+                            <textarea id="msh-ag-no-portal-input" class="mshhlpr-textarea" rows="3"
+                                placeholder="Алексеева Анна, Семёнов Пётр"></textarea>
+                        </label>
+                        <button id="msh-ag-no-portal-add" class="mshhlpr-ag-mini-btn" type="button">Отметить без доступа</button>
+                        <p class="mshhlpr-ag-no-portal-note">Список сохраняется локально и используется при каждом расчёте.</p>
+                        <div id="msh-ag-no-portal-status" class="mshhlpr-ag-inline-status"></div>
+                        <div id="msh-ag-no-portal-list"></div>
                     </aside>
 
                     <main class="mshhlpr-ag-preview">
@@ -845,6 +988,19 @@ window.initAutoGrading = function () {
         overlay.querySelector('#msh-ag-apply').onclick = () => applyPreview(overlay);
         overlay.querySelector('#msh-ag-unit').onchange = () => updateThresholdLabels(overlay);
         overlay.querySelector('#msh-ag-deadline-mode').onchange = () => updateDeadlineControls(overlay);
+        overlay.querySelector('#msh-ag-no-portal-add').onclick = () => commitNoPortalInput(overlay);
+        overlay.querySelector('#msh-ag-no-portal-input').addEventListener('keydown', event => {
+            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault();
+                commitNoPortalInput(overlay);
+            }
+        });
+        overlay.addEventListener('click', event => {
+            const restore = event.target.closest('[data-msh-ag-restore]');
+            if (!restore || !overlay.contains(restore)) return;
+            event.preventDefault();
+            restorePortalAccess(overlay, restore.dataset.mshAgRestore);
+        });
 
         readSettings().then(settings => {
             Object.entries({
@@ -866,6 +1022,9 @@ window.initAutoGrading = function () {
             updateThresholdLabels(overlay);
             updateDeadlineControls(overlay);
         });
+        readNoPortalList()
+            .then(list => renderNoPortalList(overlay, list))
+            .catch(error => console.warn(`${LOG} Не удалось прочитать список без доступа:`, error));
     }
 
     function injectButton() {

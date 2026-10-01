@@ -18,11 +18,15 @@
     </div>
     <script>
         history.replaceState({}, '', '/teacher/study-process/home-tasks/102996738');
+        const localStore = {};
         window.chrome = {
             storage: {
                 local: {
-                    get: async () => ({}),
-                    set: async () => undefined
+                    get: async keys => {
+                        const names = Array.isArray(keys) ? keys : Object.keys(keys || localStore);
+                        return Object.fromEntries(names.filter(key => key in localStore).map(key => [key, localStore[key]]));
+                    },
+                    set: async items => Object.assign(localStore, items)
                 },
                 session: {
                     get: async () => ({

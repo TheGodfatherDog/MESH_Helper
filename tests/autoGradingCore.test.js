@@ -75,4 +75,32 @@ assert.equal(core.calculateGrade(failingSummary, settings).finalGrade, 2);
 assert.equal(core.validateThresholds(settings), '');
 assert.match(core.validateThresholds({ ...settings, grade4: 40 }), /возрастать/);
 
+const parsedNames = core.parseNoPortalInput('Алексеева Анна, Семёнов Пётр Иванович\nБорисов');
+assert.equal(parsedNames.entries.map(item => item.key).join('|'), 'алексеева анна|семенов петр');
+assert.equal(parsedNames.entries.map(item => item.label).join('|'), 'Алексеева Анна|Семёнов Пётр');
+assert.equal(parsedNames.invalid.join('|'), 'Борисов');
+
+const merged = core.mergeNoPortalEntries(
+    [{ key: 'алексеева анна', label: 'алексеева анна' }],
+    parsedNames.entries
+);
+assert.equal(merged.added, 1);
+assert.equal(merged.list.find(item => item.key === 'алексеева анна').label, 'Алексеева Анна');
+assert.equal(core.studentHasNoPortalAccess({
+    lastName: 'Семёнов',
+    firstName: 'Пётр',
+    fullName: 'Семёнов Пётр Иванович'
+}, merged.list), 'семенов петр');
+assert.equal(core.studentHasNoPortalAccess({
+    fullName: 'Алексеева Анна Сергеевна'
+}, merged.list), 'алексеева анна');
+assert.equal(core.studentHasNoPortalAccess({
+    lastName: 'Волкова',
+    firstName: 'Вера'
+}, merged.list), '');
+assert.equal(
+    JSON.stringify(core.normalizeNoPortalList(['Петров-Водкин Кузьма', { key: '', label: 'x' }])),
+    JSON.stringify([{ key: 'петров-водкин кузьма', label: 'Петров-Водкин Кузьма' }])
+);
+
 console.log('autoGradingCore: OK');
