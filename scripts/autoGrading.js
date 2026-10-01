@@ -60,6 +60,14 @@ window.initAutoGrading = function () {
         return [];
     };
 
+    function isDigitalEntry(entry) {
+        return Boolean(entry && !entry.deleted_at && entry.is_digital_homework === true);
+    }
+
+    function digitalEntries(homework) {
+        return (homework?.homework_entries || []).filter(isDigitalEntry);
+    }
+
     function getHomeworkIdFromPath() {
         return location.pathname.match(/^\/teacher\/study-process\/home-tasks\/(\d+)/)?.[1] || '';
     }
@@ -263,6 +271,10 @@ window.initAutoGrading = function () {
             proposedGrade = null;
             action = 'skip';
             reason = 'Нет дедлайна';
+        } else if (row.hasDeadline && row.deadlinePassed === false && !row.isCompleted) {
+            proposedGrade = null;
+            action = 'skip';
+            reason = 'Срок сдачи ещё не наступил';
         } else if (!row.isCompleted && settings.missingMode === 'skip') {
             proposedGrade = null;
             action = 'skip';
@@ -302,6 +314,12 @@ window.initAutoGrading = function () {
         return response.data;
     }
 
+    function selectHomeworks(homeworks, settings) {
+        const digital = homeworks.filter(homework => !homework.deleted_at && digitalEntries(homework).length);
+        if (settings.scope === 'current') return digital;
+        return digital.filter(homework => core.isPastHomework(homework, settings));
+    }
+
     async function collectHomeworks(currentHomework, settings) {
         if (settings.scope === 'current') return [currentHomework];
 
@@ -322,11 +340,7 @@ window.initAutoGrading = function () {
         }
 
         const homeworks = await fetchAllCore('/homeworks', params, 100);
-        return homeworks.filter(homework =>
-            !homework.deleted_at &&
-            homework.homework_entries?.some(entry => entry.is_digital_homework) &&
-            core.isPastHomework(homework, settings)
-        );
+        return homeworks.filter(homework => !homework.deleted_at);
     }
 
     async function getScheduleItem(homework, aid) {
@@ -409,7 +423,7 @@ window.initAutoGrading = function () {
 
     async function buildHomeworkPreview(homework, settings) {
         const auth = await getAuth();
-        const entries = (homework.homework_entries || []).filter(entry => entry.is_digital_homework && !entry.deleted_at);
+        const entries = digitalEntries(homework);
         if (!entries.length) return { rows: [], warning: 'В ЦДЗ нет автопроверяемых заданий.' };
 
         const studentIds = [...new Set(entries.flatMap(entry => entry.student_ids || []).map(Number).filter(Boolean))];
@@ -454,6 +468,7 @@ window.initAutoGrading = function () {
         });
 
         const deadline = core.getEffectiveDeadline(homework.date_prepared_for, settings);
+        const deadlinePassed = !deadline || Date.now() >= deadline.getTime();
         const rows = profiles.map(profile => {
             const assignedEntryIds = entries
                 .filter(entry => entry.student_ids?.map(Number).includes(Number(profile.id)))
@@ -481,6 +496,7 @@ window.initAutoGrading = function () {
                 isCompleted,
                 isLate,
                 hasDeadline: Boolean(deadline),
+                deadlinePassed,
                 noPortalKey,
                 noPortalAccess: Boolean(noPortalKey),
                 summary,
@@ -670,10 +686,18 @@ window.initAutoGrading = function () {
             await saveSettings(settings);
             const currentHomework = await getCurrentHomework();
             const homeworks = await collectHomeworks(currentHomework, settings);
-            const pastDigitalHomeworks = homeworks.filter(homework =>
-                homework.homework_entries?.some(entry => entry.is_digital_homework) &&
-                core.isPastHomework(homework, settings)
-            );
+            const pastDigitalHomeworks = selectHomeworks(homeworks, settings);
+            if (!pastDigitalHomeworks.length) {
+                const hasDigital = homeworks.some(homework => digitalEntries(homework).length);
+                activeModalState = {
+                    rows: [],
+                    settings,
+                    warning: hasDigital ? 'Дедлайн по ЦДЗ ещё не наступил.' : 'Нет подходящих ЦДЗ.'
+                };
+                setLoading(modal, false);
+                renderPreview(modal, activeModalState);
+                return;
+            }
             const processed = await mapLimit(pastDigitalHomeworks, 3, async (homework, index) => {
                 setLoading(modal, true, `Загрузка ЦДЗ ${index + 1} из ${pastDigitalHomeworks.length}…`);
                 try {

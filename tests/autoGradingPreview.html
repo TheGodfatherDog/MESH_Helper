@@ -44,7 +44,7 @@
         });
         window.fetch = async (url, options = {}) => {
             const path = String(url);
-            if (path.endsWith('/homeworks/102996738')) return json({
+            if (path.includes('/homeworks/102996738')) return json({
                 id: 102996738,
                 teacher_id: 500,
                 group_id: 700,
