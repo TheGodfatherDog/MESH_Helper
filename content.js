@@ -31,6 +31,7 @@
         if (typeof initNoHomework === 'function') initNoHomework();
         if (typeof initMathSymbols === 'function') initMathSymbols();
         if (typeof initCheckScheduleTeachers === 'function') initCheckScheduleTeachers();
+        if (typeof initAutoGrading === 'function') initAutoGrading();
 
 
         isRunning = true;

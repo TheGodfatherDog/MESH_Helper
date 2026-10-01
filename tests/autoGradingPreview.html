@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Автооценка ЦДЗ — визуальная проверка</title>
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        body { margin: 0; padding: 40px; font-family: 'Segoe UI', sans-serif; background: #f4f6f5; }
+        .fixture-toolbar { display: flex; gap: 12px; align-items: center; padding: 20px; background: #fff; border-radius: 12px; }
+        .fixture-action { padding: 10px 16px; border: 1px solid #d4d8d5; border-radius: 8px; background: #fff; }
+    </style>
+</head>
+<body>
+    <div class="fixture-toolbar">
+        <strong>Домашнее задание · Физика 8-9</strong>
+        <button class="fixture-action" type="button">Действия с заданием</button>
+    </div>
+    <script>
+        history.replaceState({}, '', '/teacher/study-process/home-tasks/102996738');
+        window.chrome = {
+            storage: {
+                local: {
+                    get: async () => ({}),
+                    set: async () => undefined
+                },
+                session: {
+                    get: async () => ({
+                        currentBearerToken: 'preview-token',
+                        currentProfileId: '100',
+                        currentAid: '14'
+                    })
+                }
+            }
+        };
+
+        const json = data => new Response(JSON.stringify(data), {
+            status: 200,
+            headers: { 'content-type': 'application/json', 'x-pagination-total-pages': '1' }
+        });
+        window.fetch = async (url, options = {}) => {
+            const path = String(url);
+            if (path.endsWith('/homeworks/102996738')) return json({
+                id: 102996738,
+                teacher_id: 500,
+                group_id: 700,
+                subject_id: 12,
+                date_prepared_for: '30.09.2026',
+                homework_entries: [{ id: 9001, is_digital_homework: true, student_ids: [1, 2, 3] }]
+            });
+            if (path.includes('/groups/700')) return json({
+                id: 700, name: '8 УНИВ', class_level_id: 8, education_level_id: 2, school_id: 300
+            });
+            if (path.includes('/student_profiles')) return json([
+                { id: 1, person_id: 'person-1', school_id: 300, last_name: 'Алексеева', first_name: 'Анна' },
+                { id: 2, person_id: 'person-2', school_id: 300, last_name: 'Борисов', first_name: 'Борис' },
+                { id: 3, person_id: 'person-3', school_id: 300, last_name: 'Волкова', first_name: 'Вера' }
+            ]);
+            if (path.includes('/student_homeworks')) return json([]);
+            if (path.includes('/schedule_items')) return json([{
+                id: 8001, group_name: '8 УНИВ', homeworks_to_verify: [{ id: 102996738 }]
+            }]);
+            if (path.includes('/control_forms')) return json([{ id: 77, grade_system_id: 1 }]);
+            if (path.includes('/marks?')) return json([{ id: 44, student_profile_id: 3, name: '2' }]);
+            if (path.includes('/attendances?')) return json([{
+                id: 55, student_profile_id: 2, schedule_lesson_id: 8001, absence_reason_id: 2
+            }]);
+            if (path.includes('/api/lrs/v2/bulk/results')) return json({
+                totalPages: 1,
+                content: [
+                    {
+                        context: { person_id: 'person-1', work_id: '9001', material_id: 'test-1' },
+                        recommended_mark: 9,
+                        recommended_mark_scale: 10,
+                        started_at: '2026-09-30T18:00:00+03:00'
+                    },
+                    {
+                        context: { person_id: 'person-3', work_id: '9001', material_id: 'test-1' },
+                        recommended_mark: 8,
+                        recommended_mark_scale: 10,
+                        started_at: '2026-10-01T01:00:00+03:00'
+                    }
+                ]
+            });
+            throw new Error(`Fixture has no response for ${options.method || 'GET'} ${path}`);
+        };
+    </script>
+    <script src="/scripts/autoGradingCore.js"></script>
+    <script src="/scripts/autoGrading.js"></script>
+    <script>window.initAutoGrading();</script>
+</body>
+</html>

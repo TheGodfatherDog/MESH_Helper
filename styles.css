@@ -869,7 +869,276 @@ td.mshhlpr-final-correct *, td.mshhlpr-final-missing *, td.mshhlpr-final-wrong *
     padding-bottom: 4px;
 }
 
-/* ==========================================================================
+/* ===========================================================================
+   АВТООЦЕНКА ЦИФРОВЫХ ДОМАШНИХ ЗАДАНИЙ
+   ========================================================================== */
+
+.mshhlpr-ag-launch {
+    margin-left: 8px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0 14px !important;
+    font-size: 13px !important;
+}
+
+.mshhlpr-ag-modal {
+    width: min(1380px, 96vw) !important;
+    height: min(860px, 92vh) !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.mshhlpr-ag-layout {
+    display: grid;
+    grid-template-columns: 310px minmax(0, 1fr);
+    min-height: 0;
+    flex: 1;
+}
+
+.mshhlpr-ag-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 18px;
+    overflow-y: auto;
+    background: #fafcfb;
+    border-right: 1px solid #e5e9e6;
+}
+
+.mshhlpr-ag-thresholds {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+}
+
+.mshhlpr-ag-input-with-suffix {
+    position: relative;
+    display: block;
+}
+
+.mshhlpr-ag-input-with-suffix .mshhlpr-input {
+    padding-right: 42px;
+}
+
+.mshhlpr-ag-input-with-suffix small {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    color: #7b837d;
+    font-size: 10px;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.mshhlpr-ag-deadline {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 92px;
+    gap: 7px;
+}
+
+.mshhlpr-ag-deadline.is-time-hidden { grid-template-columns: 1fr; }
+.mshhlpr-ag-deadline-time.is-hidden,
+.mshhlpr-ag-deadline .is-hidden { display: none !important; }
+
+.mshhlpr-ag-deadline-note {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    margin-top: -6px;
+    color: #77817a;
+    font-size: 11px;
+}
+
+.mshhlpr-ag-check {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    color: #303632;
+    font-size: 12px;
+    line-height: 1.35;
+    cursor: pointer;
+}
+
+.mshhlpr-ag-check input {
+    margin: 2px 0 0;
+    accent-color: #2e7d32;
+}
+
+.mshhlpr-ag-rule-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 20px;
+    gap: 6px;
+    align-items: start;
+}
+
+.mshhlpr-ag-help {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    color: #2e7d32;
+    background: #eef7f0;
+    border: 1px solid #a9cdb0;
+    border-radius: 50%;
+    font: 700 11px/1 'Segoe UI', sans-serif;
+    cursor: help;
+}
+
+.mshhlpr-ag-help:hover,
+.mshhlpr-ag-help:focus-visible {
+    color: #fff;
+    background: #2e7d32;
+    border-color: #2e7d32;
+    outline: none;
+}
+
+.mshhlpr-ag-tooltip {
+    position: fixed;
+    z-index: 10000000;
+    display: none;
+    width: max-content;
+    max-width: 360px;
+    padding: 9px 12px;
+    color: #fff;
+    background: #263129;
+    border-radius: 7px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+    opacity: 0;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 1.45;
+    pointer-events: none;
+    transition: opacity 0.12s ease;
+}
+
+.mshhlpr-ag-tooltip.is-visible { opacity: 1; }
+
+.mshhlpr-ag-preview {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    padding: 18px;
+    background: #fff;
+}
+
+.mshhlpr-ag-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 28px;
+}
+
+.mshhlpr-ag-summary span {
+    padding: 5px 10px;
+    color: #36513c;
+    background: #eff7f1;
+    border: 1px solid #d5e7d9;
+    border-radius: 14px;
+    font-size: 11px;
+}
+
+.mshhlpr-ag-status {
+    min-height: 18px;
+    margin: 8px 0;
+    color: #5d665f;
+    font-size: 12px;
+}
+
+.mshhlpr-ag-status.is-loading { color: #1565c0; }
+.mshhlpr-ag-status.is-error { color: #c62828; }
+.mshhlpr-ag-status.is-warning { color: #a45b00; }
+.mshhlpr-ag-status.is-success { color: #2e7d32; }
+
+.mshhlpr-ag-table-wrap {
+    min-height: 0;
+    flex: 1;
+    overflow: auto;
+    border: 1px solid #e2e7e3;
+    border-radius: 10px;
+}
+
+.mshhlpr-ag-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    color: #303632;
+    font-size: 12px;
+}
+
+.mshhlpr-ag-table th {
+    position: sticky;
+    z-index: 1;
+    top: 0;
+    padding: 10px 9px;
+    color: #526057;
+    background: #f4f7f5;
+    border-bottom: 1px solid #dfe5e0;
+    font-size: 11px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.mshhlpr-ag-table td {
+    padding: 9px;
+    border-bottom: 1px solid #edf0ee;
+    vertical-align: middle;
+}
+
+.mshhlpr-ag-table tbody tr:hover td { background: #fafcfb; }
+.mshhlpr-ag-table small { color: #788079; }
+
+.mshhlpr-ag-empty {
+    height: 180px;
+    color: #7d867f;
+    text-align: center !important;
+}
+
+.mshhlpr-ag-badge {
+    display: inline-flex;
+    padding: 3px 7px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.mshhlpr-ag-badge-success { color: #237a36; background: #e7f6ea; }
+.mshhlpr-ag-badge-warning { color: #975500; background: #fff1d8; }
+.mshhlpr-ag-badge-danger { color: #b32929; background: #fde9e9; }
+.mshhlpr-ag-badge-muted { color: #626b65; background: #edf0ee; }
+.mshhlpr-ag-action-create { color: #237a36; }
+.mshhlpr-ag-action-update { color: #1565c0; }
+.mshhlpr-ag-action-skip { color: #7d867f; }
+
+.mshhlpr-ag-footer {
+    align-items: center;
+    gap: 16px;
+}
+
+.mshhlpr-ag-footer-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+}
+
+@media (max-width: 900px) {
+    .mshhlpr-ag-modal { height: 96vh !important; }
+    .mshhlpr-ag-layout { grid-template-columns: 1fr; }
+    .mshhlpr-ag-settings {
+        max-height: 42vh;
+        border-right: 0;
+        border-bottom: 1px solid #e5e9e6;
+    }
+    .mshhlpr-ag-footer { align-items: flex-start; flex-direction: column; }
+    .mshhlpr-ag-footer-actions { margin-left: 0; }
+}
+
+/* ===========================================================================
    МОДАЛЬНОЕ ОКНО САМОАНАЛИЗА (SELF ANALYSIS)
    ========================================================================== */
 
