@@ -1042,6 +1042,67 @@ td.mshhlpr-final-correct *, td.mshhlpr-final-missing *, td.mshhlpr-final-wrong *
     font-size: 11px;
 }
 
+.mshhlpr-ag-label-help {
+    display: inline-flex;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+
+.mshhlpr-ag-chart-toggle {
+    padding: 5px 10px;
+    color: #36513c;
+    background: #fff;
+    border: 1px solid #c9ddce;
+    border-radius: 14px;
+    cursor: pointer;
+    font: inherit;
+}
+
+.mshhlpr-ag-chart-toggle:disabled {
+    cursor: default;
+    opacity: 0.55;
+}
+
+.mshhlpr-ag-grade-chart {
+    padding: 2px 0 12px;
+}
+
+.mshhlpr-ag-chart {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 12px;
+    border: 1px solid #e2e7e3;
+    border-radius: 10px;
+    background: #fafcfb;
+}
+
+.mshhlpr-ag-chart-pie {
+    width: 76px;
+    height: 76px;
+    flex: 0 0 76px;
+    border-radius: 50%;
+}
+
+.mshhlpr-ag-chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    font-size: 12px;
+}
+
+.mshhlpr-ag-chart-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.mshhlpr-ag-chart-item i {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+}
+
 .mshhlpr-ag-status {
     min-height: 18px;
     margin: 8px 0;
@@ -1091,6 +1152,15 @@ td.mshhlpr-final-correct *, td.mshhlpr-final-missing *, td.mshhlpr-final-wrong *
 
 .mshhlpr-ag-table tbody tr:hover td { background: #fafcfb; }
 .mshhlpr-ag-table small { color: #788079; }
+
+.mshhlpr-ag-table tbody tr.mshhlpr-ag-grade-row-2 td { background: rgba(220, 64, 64, 0.08); }
+.mshhlpr-ag-table tbody tr.mshhlpr-ag-grade-row-3 td { background: rgba(226, 163, 48, 0.09); }
+.mshhlpr-ag-table tbody tr.mshhlpr-ag-grade-row-4 td { background: rgba(72, 133, 210, 0.08); }
+.mshhlpr-ag-table tbody tr.mshhlpr-ag-grade-row-5 td { background: rgba(73, 157, 95, 0.09); }
+.mshhlpr-ag-table tbody tr.mshhlpr-ag-grade-row-2:hover td { background: rgba(220, 64, 64, 0.13); }
+.mshhlpr-ag-table tbody tr.mshhlpr-ag-grade-row-3:hover td { background: rgba(226, 163, 48, 0.14); }
+.mshhlpr-ag-table tbody tr.mshhlpr-ag-grade-row-4:hover td { background: rgba(72, 133, 210, 0.13); }
+.mshhlpr-ag-table tbody tr.mshhlpr-ag-grade-row-5:hover td { background: rgba(73, 157, 95, 0.14); }
 
 .mshhlpr-ag-empty {
     height: 180px;

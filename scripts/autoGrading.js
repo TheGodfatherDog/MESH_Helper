@@ -25,7 +25,7 @@ window.initAutoGrading = function () {
         grade3: 50,
         grade4: 70,
         grade5: 85,
-        skipAbsent: true,
+        absentMode: 'skip',
         penalizeAttempts: false,
         missingMode: '2',
         existingMode: 'skip',
@@ -220,6 +220,10 @@ window.initAutoGrading = function () {
             (Number(saved.deadlineDayOffset) !== 1 || saved.deadlineTime !== '00:00')) {
             settings.deadlineMode = 'custom';
         }
+        if (!Object.prototype.hasOwnProperty.call(saved, 'absentMode')) {
+            settings.absentMode = saved.skipAbsent === false ? 'completed' : 'skip';
+        }
+        settings.scope = 'current';
         return settings;
     }
 
@@ -249,8 +253,9 @@ window.initAutoGrading = function () {
 
     function applyRowDecision(row, settings) {
         const existingMark = row.existingMark;
+        const ignoreDeadlineForAbsent = row.absent && settings.absentMode === 'completed' && row.isCompleted;
         let proposedGrade = row.isCompleted
-            ? core.getLateGrade(row.calculation.finalGrade, row.isLate, settings)
+            ? core.getLateGrade(row.calculation.finalGrade, row.isLate && !ignoreDeadlineForAbsent, settings)
             : (settings.missingMode === '2' ? 2 : null);
         let action = existingMark ? 'update' : 'create';
         let reason = '';
@@ -259,10 +264,14 @@ window.initAutoGrading = function () {
             proposedGrade = null;
             action = 'skip';
             reason = 'Нет доступа к порталу';
-        } else if (settings.skipAbsent && row.absent) {
+        } else if (row.absent && settings.absentMode === 'skip') {
             proposedGrade = null;
             action = 'skip';
             reason = 'Отсутствовал на целевом уроке';
+        } else if (row.absent && !row.isCompleted) {
+            proposedGrade = null;
+            action = 'skip';
+            reason = 'Не выполнено при отсутствии';
         } else if (existingMark && settings.existingMode === 'skip') {
             proposedGrade = null;
             action = 'skip';
@@ -314,33 +323,12 @@ window.initAutoGrading = function () {
         return response.data;
     }
 
-    function selectHomeworks(homeworks, settings) {
-        const digital = homeworks.filter(homework => !homework.deleted_at && digitalEntries(homework).length);
-        if (settings.scope === 'current') return digital;
-        return digital.filter(homework => core.isPastHomework(homework, settings));
+    function selectHomeworks(homeworks) {
+        return homeworks.filter(homework => !homework.deleted_at && digitalEntries(homework).length);
     }
 
-    async function collectHomeworks(currentHomework, settings) {
-        if (settings.scope === 'current') return [currentHomework];
-
-        const auth = await getAuth();
-        const teacherId = currentHomework.teacher_id || auth.profileId;
-        if (!teacherId) throw new Error('Не удалось определить профиль учителя для массовой проверки.');
-
-        const params = {
-            teacher_id: teacherId,
-            with_entries: true,
-            date_prepared_for_end: core.formatPortalDate(new Date()),
-            per_page: 100
-        };
-        if (settings.scope === 'class') params.group_id = currentHomework.group_id;
-        if (settings.scope === 'parallel') {
-            const group = await getGroup(currentHomework.group_id);
-            params.class_level_id = group.class_level_id;
-        }
-
-        const homeworks = await fetchAllCore('/homeworks', params, 100);
-        return homeworks.filter(homework => !homework.deleted_at);
+    async function collectHomeworks(currentHomework) {
+        return [currentHomework];
     }
 
     async function getScheduleItem(homework, aid) {
@@ -515,12 +503,12 @@ window.initAutoGrading = function () {
         const deadlineModeValue = value('msh-ag-deadline-mode');
         const isCustomDeadline = /^\d+$/.test(deadlineModeValue || '');
         return {
-            scope: value('msh-ag-scope'),
+            scope: 'current',
             thresholdUnit: value('msh-ag-unit'),
             grade3: Number(value('msh-ag-grade3')),
             grade4: Number(value('msh-ag-grade4')),
             grade5: Number(value('msh-ag-grade5')),
-            skipAbsent: checked('msh-ag-skip-absent'),
+            absentMode: value('msh-ag-absent-mode'),
             penalizeAttempts: checked('msh-ag-penalty'),
             missingMode: value('msh-ag-missing'),
             existingMode: value('msh-ag-existing'),
@@ -553,7 +541,10 @@ window.initAutoGrading = function () {
             <span><b>${actionable.length}</b> изменений</span>
             <span><b>${state.rows.filter(row => row.action === 'skip').length}</b> пропусков</span>
             ${noPortalCount ? `<span><b>${noPortalCount}</b> без доступа</span>` : ''}
+            <button id="msh-ag-chart-toggle" class="mshhlpr-ag-chart-toggle" type="button" aria-expanded="${Boolean(state.chartOpen)}" ${actionable.length ? '' : 'disabled'}>${state.chartOpen ? 'Скрыть диаграмму' : 'Показать диаграмму'}</button>
         `;
+        updateModalHeading(modal, state);
+        renderGradeChart(modal, state);
 
         if (!state.rows.length) {
             body.innerHTML = `<tr><td colspan="8" class="mshhlpr-ag-empty">${escapeHtml(state.warning || 'Нет подходящих ЦДЗ.')}</td></tr>`;
@@ -575,7 +566,7 @@ window.initAutoGrading = function () {
                 ? `Не выставлять <button type="button" class="mshhlpr-ag-restore" data-msh-ag-restore="${escapeHtml(row.noPortalKey)}">Есть доступ</button>`
                 : escapeHtml(actionText);
             return `
-                <tr>
+                <tr class="${getGradeRowClass(row)}">
                     <td>${escapeHtml(getProfileName(row.profile))}</td>
                     <td>${escapeHtml(row.group.name || row.group.short_name || row.homework.group_id)}</td>
                     <td>${escapeHtml(core.formatPortalDate(row.homework.date_prepared_for))}</td>
@@ -587,6 +578,56 @@ window.initAutoGrading = function () {
                 </tr>`;
         }).join('');
         applyButton.disabled = actionable.length === 0;
+    }
+
+    function getGradeRowClass(row) {
+        const grade = Number(row.proposedGrade);
+        return [2, 3, 4, 5].includes(grade) ? `mshhlpr-ag-grade-row-${grade}` : '';
+    }
+
+    function updateModalHeading(modal, state) {
+        const heading = modal.querySelector('#msh-ag-title');
+        const homework = state.rows[0]?.homework || state.homework;
+        const group = state.rows[0]?.group;
+        const groupName = group?.name || group?.short_name;
+        const date = homework?.date_prepared_for ? core.formatPortalDate(homework.date_prepared_for) : '';
+        heading.textContent = [
+            'Автоматическое выставление отметок за ЦДЗ',
+            groupName,
+            date ? `к уроку ${date}` : ''
+        ].filter(Boolean).join(' · ');
+    }
+
+    function renderGradeChart(modal, state) {
+        const container = modal.querySelector('#msh-ag-grade-chart');
+        if (!container) return;
+        const grades = [2, 3, 4, 5];
+        const counts = grades.map(grade => state.rows.filter(row =>
+            (row.action === 'create' || row.action === 'update') && Number(row.proposedGrade) === grade
+        ).length);
+        const total = counts.reduce((sum, count) => sum + count, 0);
+        const colors = { 2: '#e46a6a', 3: '#e7ad4b', 4: '#6d9cd9', 5: '#64ad78' };
+        const stops = [];
+        let current = 0;
+        grades.forEach((grade, index) => {
+            const next = current + (total ? counts[index] / total * 100 : 0);
+            if (counts[index]) stops.push(`${colors[grade]} ${current}% ${next}%`);
+            current = next;
+        });
+        if (!total) {
+            container.hidden = true;
+            return;
+        }
+        const isOpen = Boolean(state.chartOpen);
+        container.hidden = !isOpen;
+        if (!isOpen) return;
+        container.innerHTML = `
+            <div class="mshhlpr-ag-chart" role="img" aria-label="Распределение отметок">
+                <div class="mshhlpr-ag-chart-pie" style="background: conic-gradient(${stops.join(', ')});"></div>
+                <div class="mshhlpr-ag-chart-legend">${grades.map((grade, index) => `
+                    <span class="mshhlpr-ag-chart-item"><i style="background:${colors[grade]}"></i>${grade}: <b>${counts[index]}</b></span>`).join('')}
+                </div>
+            </div>`;
     }
 
     function setLoading(modal, loading, text = 'Загрузка данных…') {
@@ -685,13 +726,14 @@ window.initAutoGrading = function () {
         try {
             await saveSettings(settings);
             const currentHomework = await getCurrentHomework();
-            const homeworks = await collectHomeworks(currentHomework, settings);
-            const pastDigitalHomeworks = selectHomeworks(homeworks, settings);
+            const homeworks = await collectHomeworks(currentHomework);
+            const pastDigitalHomeworks = selectHomeworks(homeworks);
             if (!pastDigitalHomeworks.length) {
                 const hasDigital = homeworks.some(homework => digitalEntries(homework).length);
                 activeModalState = {
                     rows: [],
                     settings,
+                    homework: currentHomework,
                     warning: hasDigital ? 'Дедлайн по ЦДЗ ещё не наступил.' : 'Нет подходящих ЦДЗ.'
                 };
                 setLoading(modal, false);
@@ -709,7 +751,7 @@ window.initAutoGrading = function () {
             });
             const rows = processed.flatMap(item => item.rows);
             const warnings = processed.map(item => item.warning).filter(Boolean);
-            activeModalState = { rows, settings, warning: warnings.join(' ') };
+            activeModalState = { rows, settings, homework: currentHomework, warning: warnings.join(' ') };
             setLoading(modal, false);
             renderPreview(modal, activeModalState);
             if (warnings.length) {
@@ -870,22 +912,11 @@ window.initAutoGrading = function () {
         overlay.innerHTML = `
             <div class="mshhlpr-modal-content mshhlpr-ag-modal">
                 <div class="mshhlpr-modal-header">
-                    <span>Автоматическое выставление отметок за ЦДЗ</span>
+                    <span id="msh-ag-title">Автоматическое выставление отметок за ЦДЗ</span>
                     <button class="mshhlpr-modal-close" type="button" aria-label="Закрыть">&times;</button>
                 </div>
                 <div class="mshhlpr-ag-layout">
                     <aside class="mshhlpr-ag-settings">
-                        <div class="mshhlpr-section-title">Область проверки</div>
-                        <label class="mshhlpr-form-group">
-                            <span class="mshhlpr-form-label">Проверить</span>
-                            <select id="msh-ag-scope" class="mshhlpr-select">
-                                <option value="current">Текущее ЦДЗ</option>
-                                <option value="class">Все прошедшие ЦДЗ класса</option>
-                                <option value="parallel">Все прошедшие ЦДЗ параллели</option>
-                                <option value="all">Все мои прошедшие ЦДЗ</option>
-                            </select>
-                        </label>
-
                         <div class="mshhlpr-section-title">Пороги отметок</div>
                         <label class="mshhlpr-form-group">
                             <span class="mshhlpr-form-label">Единица</span>
@@ -922,10 +953,14 @@ window.initAutoGrading = function () {
                         </div>
 
                         <div class="mshhlpr-section-title">Правила</div>
-                        <div class="mshhlpr-ag-rule-row">
-                            <label class="mshhlpr-ag-check"><input id="msh-ag-skip-absent" type="checkbox"> Не ставить отсутствующим на целевом уроке</label>
-                            ${helpButton('Проверяется отсутствие именно на уроке, к которому привязано ЦДЗ: учитываются дата «Задано на урок» и идентификатор этого урока. Отсутствие ученика на другом уроке в тот же день не влияет на решение.', 'Как определяется отсутствие')}
-                        </div>
+                        <label class="mshhlpr-form-group">
+                            <span class="mshhlpr-form-label">Для отсутствующих на целевом уроке</span>
+                            <select id="msh-ag-absent-mode" class="mshhlpr-select">
+                                <option value="skip">Не выставлять оценки</option>
+                                <option value="completed">Выставить только за выполненное</option>
+                            </select>
+                            <span class="mshhlpr-ag-label-help">${helpButton('Проверяется отсутствие именно на уроке, к которому привязано ЦДЗ: учитываются дата «Задано на урок» и идентификатор этого урока. Вариант «Не выставлять оценки» исключает ученика из расчёта. При варианте «Выставить только за выполненное» отметка ставится только за выполненное ЦДЗ по общим порогам; дедлайн и правило для просроченных работ не учитываются.', 'Как учитывается отсутствие')}</span>
+                        </label>
                         <div class="mshhlpr-ag-rule-row">
                             <label class="mshhlpr-ag-check"><input id="msh-ag-penalty" type="checkbox"> Понижать за дополнительные попытки</label>
                             ${helpButton('За дополнительные попытки оценка снижается пропорционально количеству тестов. Если результат прошёл порог на положительную отметку, итоговая оценка не может быть ниже 3.', 'Как рассчитывается штраф за попытки')}
@@ -976,6 +1011,7 @@ window.initAutoGrading = function () {
                             <span>Настройте правила и нажмите «Рассчитать».</span>
                         </div>
                         <div id="msh-ag-status" class="mshhlpr-ag-status"></div>
+                        <div id="msh-ag-grade-chart" class="mshhlpr-ag-grade-chart" hidden></div>
                         <div class="mshhlpr-ag-table-wrap">
                             <table class="mshhlpr-ag-table">
                                 <thead><tr>
@@ -1020,6 +1056,12 @@ window.initAutoGrading = function () {
             }
         });
         overlay.addEventListener('click', event => {
+            const chartToggle = event.target.closest('#msh-ag-chart-toggle');
+            if (!chartToggle || !activeModalState) return;
+            activeModalState.chartOpen = !activeModalState.chartOpen;
+            renderPreview(overlay, activeModalState);
+        });
+        overlay.addEventListener('click', event => {
             const restore = event.target.closest('[data-msh-ag-restore]');
             if (!restore || !overlay.contains(restore)) return;
             event.preventDefault();
@@ -1028,11 +1070,11 @@ window.initAutoGrading = function () {
 
         readSettings().then(settings => {
             Object.entries({
-                'msh-ag-scope': settings.scope,
                 'msh-ag-unit': settings.thresholdUnit,
                 'msh-ag-grade3': settings.grade3,
                 'msh-ag-grade4': settings.grade4,
                 'msh-ag-grade5': settings.grade5,
+                'msh-ag-absent-mode': settings.absentMode,
                 'msh-ag-missing': settings.missingMode,
                 'msh-ag-existing': settings.existingMode,
                 'msh-ag-late': settings.lateMode,
@@ -1041,7 +1083,6 @@ window.initAutoGrading = function () {
                     : settings.deadlineMode,
                 'msh-ag-deadline-time': settings.deadlineTime
             }).forEach(([id, value]) => { overlay.querySelector(`#${id}`).value = String(value); });
-            overlay.querySelector('#msh-ag-skip-absent').checked = settings.skipAbsent;
             overlay.querySelector('#msh-ag-penalty').checked = settings.penalizeAttempts;
             updateThresholdLabels(overlay);
             updateDeadlineControls(overlay);
