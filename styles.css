@@ -874,7 +874,7 @@ td.mshhlpr-final-correct *, td.mshhlpr-final-missing *, td.mshhlpr-final-wrong *
    ========================================================================== */
 
 .mshhlpr-ag-launch {
-    margin-left: 8px !important;
+    margin: 0 0 8px auto !important;
     height: 36px !important;
     min-height: 36px !important;
     padding: 0 14px !important;
@@ -1042,10 +1042,17 @@ td.mshhlpr-final-correct *, td.mshhlpr-final-missing *, td.mshhlpr-final-wrong *
     font-size: 11px;
 }
 
-.mshhlpr-ag-label-help {
-    display: inline-flex;
-    margin-left: 4px;
-    vertical-align: middle;
+.mshhlpr-ag-label-with-help {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.mshhlpr-ag-label-with-help .mshhlpr-ag-help {
+    margin-left: 0;
 }
 
 .mshhlpr-ag-chart-toggle {

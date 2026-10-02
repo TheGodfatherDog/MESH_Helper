@@ -953,14 +953,16 @@ window.initAutoGrading = function () {
                         </div>
 
                         <div class="mshhlpr-section-title">Правила</div>
-                        <label class="mshhlpr-form-group">
-                            <span class="mshhlpr-form-label">Для отсутствующих на целевом уроке</span>
-                            <select id="msh-ag-absent-mode" class="mshhlpr-select">
+                        <div class="mshhlpr-form-group">
+                            <div class="mshhlpr-form-label mshhlpr-ag-label-with-help">
+                                <span id="msh-ag-absent-label">Для отсутствующих на целевом уроке</span>
+                                ${helpButton('Проверяется отсутствие именно на уроке, к которому привязано ЦДЗ: учитываются дата «Задано на урок» и идентификатор этого урока. Вариант «Не выставлять оценки» исключает ученика из расчёта. При варианте «Выставить только за выполненное» отметка ставится только за выполненное ЦДЗ по общим порогам; дедлайн и правило для просроченных работ не учитываются.', 'Как учитывается отсутствие')}
+                            </div>
+                            <select id="msh-ag-absent-mode" class="mshhlpr-select" aria-labelledby="msh-ag-absent-label">
                                 <option value="skip">Не выставлять оценки</option>
                                 <option value="completed">Выставить только за выполненное</option>
                             </select>
-                            <span class="mshhlpr-ag-label-help">${helpButton('Проверяется отсутствие именно на уроке, к которому привязано ЦДЗ: учитываются дата «Задано на урок» и идентификатор этого урока. Вариант «Не выставлять оценки» исключает ученика из расчёта. При варианте «Выставить только за выполненное» отметка ставится только за выполненное ЦДЗ по общим порогам; дедлайн и правило для просроченных работ не учитываются.', 'Как учитывается отсутствие')}</span>
-                        </label>
+                        </div>
                         <div class="mshhlpr-ag-rule-row">
                             <label class="mshhlpr-ag-check"><input id="msh-ag-penalty" type="checkbox"> Понижать за дополнительные попытки</label>
                             ${helpButton('За дополнительные попытки оценка снижается пропорционально количеству тестов. Если результат прошёл порог на положительную отметку, итоговая оценка не может быть ниже 3.', 'Как рассчитывается штраф за попытки')}
