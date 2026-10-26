@@ -119,8 +119,8 @@ window.initScheduleZipper = function () {
     }
 
     const syncState = (res) => {
-        ACTIVE_TEACHER = res.activeTeacher;
-        const profile = (ACTIVE_TEACHER && res.profiles?.[ACTIVE_TEACHER]) || {};
+        ACTIVE_TEACHER = res.activeTeacher || 'default';
+        const profile = res.profiles?.[ACTIVE_TEACHER] || res.profiles?.['undefined'] || {};
         STATE.zip = profile.zipScheduleEnabled !== false;
         STATE.ndo = profile.ndoHidden === true;
         BELLS_TEXT = profile.bellSchedule || res.globalBellSchedule || CONFIG.DEFAULT_BELLS;
@@ -880,10 +880,12 @@ window.initScheduleZipper = function () {
         }, { passive: true });
     }
 
-    const saveState = () => chrome.storage.local.get(['profiles'], res => {
+    const saveState = () => chrome.storage.local.get(['activeTeacher', 'profiles'], res => {
+        const key = res.activeTeacher || ACTIVE_TEACHER || 'default';
+        ACTIVE_TEACHER = key;
         const p = res.profiles || {};
-        if (!p[ACTIVE_TEACHER]) p[ACTIVE_TEACHER] = {};
-        p[ACTIVE_TEACHER] = { ...p[ACTIVE_TEACHER], zipScheduleEnabled: STATE.zip, ndoHidden: STATE.ndo };
+        if (!p[key]) p[key] = {};
+        p[key] = { ...p[key], zipScheduleEnabled: STATE.zip, ndoHidden: STATE.ndo };
         chrome.storage.local.set({ profiles: p }, runPipeline);
     });
 
@@ -987,10 +989,12 @@ window.initScheduleZipper = function () {
         };
 
         document.querySelector(SELECTORS.bellSave).onclick = () => {
-            chrome.storage.local.get(['profiles'], res => {
+            chrome.storage.local.get(['activeTeacher', 'profiles'], res => {
+                const key = res.activeTeacher || ACTIVE_TEACHER || 'default';
+                ACTIVE_TEACHER = key;
                 const profiles = res.profiles || {};
-                if (!profiles[ACTIVE_TEACHER]) profiles[ACTIVE_TEACHER] = {};
-                profiles[ACTIVE_TEACHER].bellSchedule = document.querySelector(SELECTORS.bellText).value.trim();
+                if (!profiles[key]) profiles[key] = {};
+                profiles[key].bellSchedule = document.querySelector(SELECTORS.bellText).value.trim();
                 chrome.storage.local.set({ profiles }, () => {
                     updateParsedBells();
                     runPipeline();

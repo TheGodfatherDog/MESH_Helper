@@ -58,7 +58,14 @@
         .vpr-task-list { flex-grow: 1; height: 252px; overflow-y: auto; background: #f8fafc; padding: 12px 14px; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 12px; }
         .vpr-task-item { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 6px; font-size: 13.5px; cursor: pointer; user-select: none; }
         .vpr-task-item:hover { background: #e8f5e9; }
-        .vpr-task-item input { width: 16px; height: 16px; margin: 0; accent-color: #2e7d32; cursor: pointer; flex-shrink: 0; }
+        .vpr-task-item input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: #2e7d32; cursor: pointer; flex-shrink: 0; }
+        .vpr-task-title-text { flex: 1; }
+        .vpr-qty-box { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 1px 3px; }
+        .vpr-task-item input[type="checkbox"]:not(:checked) ~ .vpr-qty-box { opacity: 0.35; pointer-events: none; }
+        .vpr-qty-btn { background: #f1f5f9; border: none; border-radius: 4px; width: 20px; height: 20px; font-weight: 700; font-size: 13px; line-height: 1; color: #334155; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
+        .vpr-qty-btn:hover { background: #cbd5e1; color: #0f172a; }
+        .vpr-qty-input { width: 32px; height: 20px; border: none; text-align: center; font-size: 12.5px; font-weight: 700; color: #1e293b; outline: none; background: transparent; -moz-appearance: textfield; appearance: textfield; padding: 0; }
+        .vpr-qty-input::-webkit-outer-spin-button, .vpr-qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         .vpr-btn-main { background: linear-gradient(135deg, #4caf50, #2e7d32); color: #fff; border: none; border-radius: 8px; padding: 12px 18px; font-size: 15px; font-weight: 700; cursor: pointer; width: 100%; box-shadow: 0 4px 12px rgba(46,125,50,0.25); transition: .15s; }
         .vpr-btn-main:hover:not(:disabled) { transform: translateY(-1px); opacity: 0.96; }
         .vpr-btn-main:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -164,6 +171,14 @@
                         <div class="vpr-task-header">
                             <label class="vpr-label" style="margin: 0;">Выбор заданий:</label>
                             <div class="vpr-task-actions">
+                                <select id="bulkQtySelect" class="vpr-mini-btn" title="Установить количество всем отмеченным заданиям" style="outline: none;">
+                                    <option value="" selected disabled>По N шт...</option>
+                                    <option value="1">Всем по 1 шт.</option>
+                                    <option value="2">Всем по 2 шт.</option>
+                                    <option value="3">Всем по 3 шт.</option>
+                                    <option value="5">Всем по 5 шт.</option>
+                                    <option value="10">Всем по 10 шт.</option>
+                                </select>
                                 <button type="button" id="selectAllBtn" class="vpr-mini-btn">Выбрать все</button>
                                 <button type="button" id="deselectAllBtn" class="vpr-mini-btn">Снять все</button>
                             </div>

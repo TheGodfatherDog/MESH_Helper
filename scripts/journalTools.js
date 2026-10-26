@@ -255,19 +255,30 @@ window.initJournalTools = function () {
         if (!board) return null;
         if (getComputedStyle(board).position === 'static') board.style.position = 'relative';
 
-        // 🎯 ТОЧЕЧНЫЙ ФИКС СКРОЛЛА ПРЯМО ИЗ JS (styles.css менять не нужно!)
+        // 🎯 ТОЧЕЧНЫЙ ФИКС СКРОЛЛА, СВОРАЧИВАНИЯ И ДИНАМИЧЕСКОЙ ШИРИНЫ
         if (!document.getElementById('mshhlpr-sidebar-scroll-fix')) {
             const fix = document.createElement('style');
             fix.id = 'mshhlpr-sidebar-scroll-fix';
             fix.textContent = `
-                /* Привязываем сайдбар к экрану ноутбука, а не к бесконечной таблице */
+                /* Динамический отступ журнала под актуальную ширину сайдбара */
+                .GMR0YmfCRS7L64NE4EFF.mshhlpr-has-sidebar-expanded {
+                    min-height: calc(100vh - 140px) !important;
+                    padding-right: var(--msh-sb-pad, clamp(245px, 20vw, 340px)) !important;
+                    transition: padding-right 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                }
+                .GMR0YmfCRS7L64NE4EFF.mshhlpr-has-sidebar-collapsed {
+                    padding-right: 0px !important;
+                }
+
+                /* Развернутое состояние */
                 #mshhlpr-journal-sidebar.mshhlpr-sidebar-expanded {
-                    max-height: calc(100vh - 90px) !important;
+                    width: var(--msh-sb-w, clamp(230px, 19vw, 320px)) !important;
+                    max-height: min(calc(100% - 20px), calc(100vh - 145px)) !important;
                     display: flex !important;
                     flex-direction: column !important;
+                    border-radius: 14px !important;
                 }
-                /* Разрешаем flexbox сжиматься и скроллиться внутри */
-                #mshhlpr-journal-sidebar #mshhlpr-sidebar-expanded-content {
+                #mshhlpr-journal-sidebar.mshhlpr-sidebar-expanded #mshhlpr-sidebar-expanded-content {
                     height: 100% !important;
                     max-height: 100% !important;
                     min-height: 0 !important;
@@ -275,12 +286,45 @@ window.initJournalTools = function () {
                     flex-direction: column !important;
                     overflow: hidden !important;
                 }
-                /* Включаем плавный полный скролл до самого низа */
+                #mshhlpr-journal-sidebar.mshhlpr-sidebar-expanded #mshhlpr-sidebar-collapsed-content {
+                    display: none !important;
+                }
+
+                /* Свернутое состояние (круглая кнопка со значком 🛠️ на всю площадь) */
+                #mshhlpr-journal-sidebar.mshhlpr-sidebar-collapsed {
+                    width: 44px !important;
+                    height: 44px !important;
+                    min-height: 44px !important;
+                    max-height: 44px !important;
+                    border-radius: 50% !important;
+                    cursor: pointer !important;
+                    overflow: hidden !important;
+                    padding: 0 !important;
+                }
+                #mshhlpr-journal-sidebar.mshhlpr-sidebar-collapsed #mshhlpr-sidebar-expanded-content {
+                    display: none !important;
+                    pointer-events: none !important;
+                }
+                #mshhlpr-journal-sidebar.mshhlpr-sidebar-collapsed #mshhlpr-sidebar-collapsed-content {
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    width: 44px !important;
+                    height: 44px !important;
+                    font-size: 20px !important;
+                    background: var(--mshhlpr-primary-gradient) !important;
+                    cursor: pointer !important;
+                    user-select: none !important;
+                    pointer-events: auto !important;
+                }
+
+                /* Внутренний скролл тела панели */
                 #mshhlpr-journal-sidebar #mshhlpr-sidebar-body {
                     flex: 1 1 auto !important;
                     min-height: 0 !important;
                     max-height: none !important;
                     overflow-y: auto !important;
+                    overflow-x: hidden !important;
                     scrollbar-width: thin !important;
                 }
                 #mshhlpr-journal-sidebar #mshhlpr-sidebar-body::-webkit-scrollbar {
@@ -290,17 +334,127 @@ window.initJournalTools = function () {
                     background-color: #cbd5e1;
                     border-radius: 4px;
                 }
+
+                /* Уплотнение вертикальных отступов на небольших экранах */
+                @media (max-height: 860px) {
+                    #mshhlpr-journal-sidebar #mshhlpr-sidebar-header {
+                        padding: 6px 12px !important;
+                        min-height: 28px !important;
+                        height: 28px !important;
+                    }
+                    #mshhlpr-journal-sidebar #mshhlpr-sidebar-body {
+                        padding: 8px 10px !important;
+                        gap: 6px !important;
+                    }
+                    #mshhlpr-journal-sidebar #mshhlpr-mentor-widget {
+                        padding: 6px 10px !important;
+                    }
+                    #mshhlpr-journal-sidebar .msh-widget-title {
+                        margin-bottom: 2px !important;
+                    }
+                    #mshhlpr-journal-sidebar #mshhlpr-tools-widget button {
+                        padding: 4px 8px !important;
+                    }
+                    #mshhlpr-journal-sidebar #mesh-validator-ui,
+                    #mshhlpr-journal-sidebar #msh-cs-w {
+                        margin-top: 4px !important;
+                        padding-top: 6px !important;
+                    }
+                }
+
+                /* Фиксированная таблица расписания без пустых пробелов */
+                .msh-cs-table {
+                    width: 100% !important;
+                    table-layout: fixed !important;
+                    border-collapse: collapse !important;
+                    font-size: 11px !important;
+                    line-height: 1.15 !important;
+                }
+                .msh-cs-table td {
+                    vertical-align: top !important;
+                    box-sizing: border-box !important;
+                }
+                .msh-cs-col-num {
+                    width: 16px !important;
+                    padding: 2px 2px 2px 2px !important;
+                    text-align: left !important;
+                    font-weight: 800 !important;
+                    color: #475569 !important;
+                    white-space: nowrap !important;
+                }
+                .msh-cs-col-time {
+                    width: 34px !important;
+                    padding: 2px 3px 2px 0 !important;
+                    text-align: left !important;
+                    font-size: 9.5px !important;
+                    color: #64748b !important;
+                    font-family: monospace !important;
+                    white-space: nowrap !important;
+                    letter-spacing: -0.3px !important;
+                }
+                .msh-cs-col-info {
+                    width: auto !important;
+                    padding: 2px 2px 2px 0 !important;
+                    overflow: hidden !important;
+                }
+
+                /* Контейнер предмета и кабинета + бегущая строка по наведению */
+                .msh-cs-row-top {
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: space-between !important;
+                    gap: 4px !important;
+                    width: 100% !important;
+                    min-width: 0 !important;
+                }
+                .msh-cs-sub-wrap {
+                    flex: 1 1 0% !important;
+                    min-width: 0 !important;
+                    overflow: hidden !important;
+                    white-space: nowrap !important;
+                    text-overflow: ellipsis !important;
+                    font-weight: 700 !important;
+                    color: #1e293b !important;
+                }
+                .msh-cs-sub-text {
+                    display: inline !important;
+                }
+                @keyframes mshCsMarquee {
+                    0%, 10% { transform: translateX(0); }
+                    90%, 100% { transform: translateX(var(--msh-marquee-dist, 0px)); }
+                }
+                .msh-cs-sub-wrap.msh-is-scrolling {
+                    text-overflow: clip !important;
+                }
+                .msh-cs-sub-wrap.msh-is-scrolling .msh-cs-sub-text {
+                    display: inline-block !important;
+                    animation: mshCsMarquee var(--msh-marquee-dur, 2.5s) ease-in-out infinite alternate !important;
+                }
+                .msh-cs-room {
+                    flex: 0 0 auto !important;
+                    font-size: 9px !important;
+                    font-weight: 700 !important;
+                    background: #f1f5f9 !important;
+                    border: 1px solid #cbd5e1 !important;
+                    padding: 0 3px !important;
+                    border-radius: 3px !important;
+                    white-space: nowrap !important;
+                    color: #334155 !important;
+                }
             `;
             document.head.appendChild(fix);
         }
 
         const toggleSidebar = (collapse) => {
-            const el = document.getElementById('mshhlpr-journal-sidebar'); if (!el) return;
+            const el = document.getElementById('mshhlpr-journal-sidebar');
+            const curBoard = document.querySelector('.GMR0YmfCRS7L64NE4EFF');
+            if (!el || !curBoard) return;
+
             el.classList.toggle('mshhlpr-sidebar-collapsed', collapse); 
             el.classList.toggle('mshhlpr-sidebar-expanded', !collapse);
             
-            board.classList.toggle('mshhlpr-has-sidebar-expanded', !collapse);
-            board.classList.toggle('mshhlpr-has-sidebar-collapsed', collapse);
+            curBoard.classList.toggle('mshhlpr-has-sidebar-expanded', !collapse);
+            curBoard.classList.toggle('mshhlpr-has-sidebar-collapsed', collapse);
 
             el.classList.add('mshhlpr-sidebar-transition'); 
             sessionStorage.setItem('mshhlpr_sidebar_collapsed', collapse);
@@ -309,28 +463,46 @@ window.initJournalTools = function () {
         let sidebar = document.getElementById('mshhlpr-journal-sidebar');
         if (!sidebar) {
             const isC = sessionStorage.getItem('mshhlpr_sidebar_collapsed') === 'true';
-            sidebar = document.createElement('div'); sidebar.id = 'mshhlpr-journal-sidebar';
+            sidebar = document.createElement('div');
+            sidebar.id = 'mshhlpr-journal-sidebar';
             sidebar.className = `mshhlpr-sidebar-container ${isC ? 'mshhlpr-sidebar-collapsed' : 'mshhlpr-sidebar-expanded'}`;
-            
-            board.classList.toggle('mshhlpr-has-sidebar-expanded', !isC);
-            board.classList.toggle('mshhlpr-has-sidebar-collapsed', isC);
 
             sidebar.innerHTML = `
                 <div id="mshhlpr-sidebar-expanded-content">
-                    <div id="mshhlpr-sidebar-header" class="mshhlpr-universal-toggle-btn">
+                    <div id="mshhlpr-sidebar-header" class="mshhlpr-universal-toggle-btn" title="Свернуть панель">
                         <span class="mshhlpr-universal-toggle-text">🛠️ Помогатор</span>
                         <span style="color:#fff;font-weight:700;font-size:11px">▼</span>
                     </div>
                     <div id="mshhlpr-sidebar-body"></div>
                 </div>
-                <div id="mshhlpr-sidebar-collapsed-content">🛠️</div>`;
+                <div id="mshhlpr-sidebar-collapsed-content" title="Развернуть Помогатор">🛠️</div>`;
             
             board.appendChild(sidebar);
             requestAnimationFrame(() => requestAnimationFrame(() => sidebar.classList.add('mshhlpr-sidebar-transition')));
             sidebar.addEventListener('transitionend', e => e.propertyName === 'width' && sidebar.classList.contains('mshhlpr-sidebar-expanded') && autoFitText(document.getElementById('mshhlpr-mentor-name')));
-            document.getElementById('mshhlpr-sidebar-header').onclick = e => { e.stopPropagation(); toggleSidebar(true); };
-            sidebar.onclick = e => sidebar.classList.contains('mshhlpr-sidebar-collapsed') && (e.stopPropagation(), toggleSidebar(false));
+            
+            document.getElementById('mshhlpr-sidebar-header').onclick = e => {
+                e.stopPropagation();
+                toggleSidebar(true);
+            };
+            document.getElementById('mshhlpr-sidebar-collapsed-content').onclick = e => {
+                e.stopPropagation();
+                toggleSidebar(false);
+            };
+            sidebar.onclick = e => {
+                if (sidebar.classList.contains('mshhlpr-sidebar-collapsed')) {
+                    e.stopPropagation();
+                    toggleSidebar(false);
+                }
+            };
         }
+
+        // Всегда синхронизируем родительский контейнер журнала (при смене класса React сбрасывает его классы)
+        if (sidebar.parentElement !== board) board.appendChild(sidebar);
+        const isCollapsedNow = sidebar.classList.contains('mshhlpr-sidebar-collapsed');
+        board.classList.toggle('mshhlpr-has-sidebar-expanded', !isCollapsedNow);
+        board.classList.toggle('mshhlpr-has-sidebar-collapsed', isCollapsedNow);
+
         return { body: document.getElementById('mshhlpr-sidebar-body'), autoFitText };
     }
 
@@ -873,12 +1045,12 @@ window.initJournalTools = function () {
         if (!root) {
             const isCol = localStorage.getItem('msh_cs_col') === 'true';
             const html = `
-                <div id="msh-cs-w" class="mesh-unified-card" style="margin-top:10px;border-top:1px solid #ccc;padding-top:8px;display:none;">
+                <div id="msh-cs-w" class="mesh-unified-card" style="margin-top:8px;border-top:1px solid #ccc;padding-top:6px;display:none;">
                     <div id="msh-cs-h" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none;font-size:12px;font-weight:700;color:#333;">
                         <span>📅 Уроки класса на сегодня</span>
                         <span id="msh-cs-ar" style="font-size:9px;color:#888;">${isCol ? '▶' : '▼'}</span>
                     </div>
-                    <div id="msh-cs-b" style="display:${isCol ? 'none' : 'block'};margin-top:6px;"></div>
+                    <div id="msh-cs-b" style="display:${isCol ? 'none' : 'block'};margin-top:4px;"></div>
                 </div>`;
 
             // Строгое позиционирование: ПОД валидатором оценок
@@ -898,16 +1070,17 @@ window.initJournalTools = function () {
                 localStorage.setItem('msh_cs_col', col);
             };
         } else {
-            // Если элементы уже были созданы, гарантируем порядок в DOM
             const valEl = document.getElementById('mesh-validator-ui');
             if (valEl && root.previousElementSibling !== valEl && valEl.parentElement === container) {
                 valEl.after(root);
             }
         }
 
-        if (root.dataset.groupId === String(groupId) && root.dataset.loaded === 'true') return;
+        // Не прерываем загрузку, если этот же класс уже загружен или прямо сейчас загружается
+        if (root.dataset.groupId === String(groupId) && (root.dataset.loaded === 'true' || root.dataset.loading === 'true')) return;
         root.dataset.groupId = String(groupId);
         root.dataset.loaded = 'false';
+        root.dataset.loading = 'true';
 
         const b = document.getElementById('msh-cs-b');
         if (csAbort) csAbort.abort();
@@ -918,8 +1091,31 @@ window.initJournalTools = function () {
         const iso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
         const cKey = `${groupId}_${iso}`;
 
+        // Пересчет оптимальной ширины панели при смене класса
+        const adjustSidebarWidth = (items) => {
+            const sidebar = document.getElementById('mshhlpr-journal-sidebar');
+            const board = document.querySelector('.GMR0YmfCRS7L64NE4EFF');
+            if (!sidebar || !board) return;
+
+            let maxSubLen = 14;
+            if (items && items.length) {
+                items.forEach(l => {
+                    if (l.sub && l.sub.length > maxSubLen) maxSubLen = l.sub.length;
+                });
+            }
+
+            const maxAllowed = Math.min(330, Math.max(240, Math.round(window.innerWidth * 0.21)));
+            const calculatedW = Math.min(maxAllowed, Math.max(225, Math.round(maxSubLen * 6.2 + 115)));
+
+            sidebar.style.setProperty('--msh-sb-w', `${calculatedW}px`);
+            board.style.setProperty('--msh-sb-pad', `${calculatedW + 18}px`);
+        };
+
         const draw = (items) => {
             root.dataset.loaded = 'true';
+            root.dataset.loading = 'false';
+            adjustSidebarWidth(items);
+
             if (!items?.length) {
                 root.style.display = 'none';
                 return;
@@ -931,54 +1127,79 @@ window.initJournalTools = function () {
             const slots = {};
             items.forEach(l => (slots[l.num] = slots[l.num] || []).push(l));
 
-            b.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:11px;line-height:1.25;">
+            b.innerHTML = `<table class="msh-cs-table">
                 <tbody>${Object.entries(slots).map(([num, list]) => {
                     const f = list[0], isCur = curM >= f.start && curM <= f.end;
                     
-                    // Проверяем, деление ли это на группы с одинаковым предметом
+                    // Проверяем деление на группы с одинаковым предметом
                     const firstSub = list[0].sub.trim().toLowerCase();
                     const isSameSubGroup = list.length > 1 && list.every(l => l.sub.trim().toLowerCase() === firstSub);
 
                     let lessonCellHtml = '';
 
                     if (isSameSubGroup) {
-                        // Одинаковый предмет: пишем название ОДИН раз сверху, а ниже компактно учителей и кабинеты
                         lessonCellHtml = `
-                            <div style="font-weight:700;color:#1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:2px;">
-                                ${list[0].sub}
+                            <div class="msh-cs-row-top" style="margin-bottom:1px;">
+                                <div class="msh-cs-sub-wrap">
+                                    <span class="msh-cs-sub-text">${list[0].sub}</span>
+                                </div>
                             </div>
-                            <div style="display:flex;flex-direction:column;gap:2px;">
+                            <div style="display:flex;flex-direction:column;gap:1px;">
                                 ${list.map(l => {
                                     const isMe = myName && l.rawTeacher.toLowerCase().includes(myName);
                                     return `
-                                        <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
-                                            <span style="font-size:9.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${isMe ? 'color:#2e7d32;font-weight:700;' : 'color:#555;'}">
+                                        <div class="msh-cs-row-top">
+                                            <span style="font-size:9.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;${isMe ? 'color:#2e7d32;font-weight:700;' : 'color:#555;'}">
                                                 👤 ${l.teacher} ${isMe ? '<span style="font-size:8px;background:#2e7d32;color:#fff;padding:0 2px;border-radius:2px;">Вы</span>' : ''}
                                             </span>
-                                            <span style="font-size:9px;font-weight:700;background:#f1f5f9;border:1px solid #cbd5e1;padding:0 3px;border-radius:3px;white-space:nowrap;flex-shrink:0;">${l.room}</span>
+                                            <span class="msh-cs-room">${l.room}</span>
                                         </div>`;
                                 }).join('')}
                             </div>`;
                     } else {
-                        // Разные предметы или один учитель
                         lessonCellHtml = list.map((l, i) => {
                             const isMe = myName && l.rawTeacher.toLowerCase().includes(myName);
                             return `${i ? '<div style="border-top:1px dashed #cbd5e1;margin:2px 0;"></div>' : ''}
-                                <div style="display:flex;justify-content:space-between;gap:2px;">
-                                    <b style="color:#1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${l.sub}</b>
-                                    <span style="font-size:9.5px;font-weight:700;background:#f1f5f9;border:1px solid #cbd5e1;padding:0 3px;border-radius:3px;white-space:nowrap;">${l.room}</span>
+                                <div class="msh-cs-row-top">
+                                    <div class="msh-cs-sub-wrap">
+                                        <span class="msh-cs-sub-text">${l.sub}</span>
+                                    </div>
+                                    <span class="msh-cs-room">${l.room}</span>
                                 </div>
-                                <div style="font-size:9.5px;${isMe ? 'color:#2e7d32;font-weight:700;' : 'color:#555;'}">👤 ${l.teacher} ${isMe ? '<span style="font-size:8.5px;background:#2e7d32;color:#fff;padding:0 2px;border-radius:2px;">Вы</span>' : ''}</div>`;
+                                <div style="font-size:9.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${isMe ? 'color:#2e7d32;font-weight:700;' : 'color:#555;'}">
+                                    👤 ${l.teacher} ${isMe ? '<span style="font-size:8.5px;background:#2e7d32;color:#fff;padding:0 2px;border-radius:2px;">Вы</span>' : ''}
+                                </div>`;
                         }).join('');
                     }
 
+                    // Вывод времени друг под другом
+                    const timeLines = (f.startStr && f.endStr) 
+                        ? `<div style="line-height:1.05;">${f.startStr}</div><div style="line-height:1.05;opacity:0.85;">${f.endStr}</div>` 
+                        : f.time;
+
                     return `<tr style="${isCur ? 'background:#e8f5e9;border-left:3px solid #2e7d32;' : 'border-bottom:1px solid #f1f5f9;'}">
-                        <td style="padding:3px 2px;text-align:center;font-weight:700;color:#555;width:18px;">${num}</td>
-                        <td style="padding:3px 2px;text-align:center;font-size:9px;color:#64748b;font-family:monospace;width:68px;">${f.time}${isCur ? '<br><b style="color:#2e7d32;font-size:8px;">● ИДЁТ</b>' : ''}</td>
-                        <td style="padding:3px 4px;">${lessonCellHtml}</td>
+                        <td class="msh-cs-col-num" title="${isCur ? 'Урок идёт сейчас' : ''}">${isCur ? '<span style="color:#2e7d32;">●</span>' : `${num}.`}</td>
+                        <td class="msh-cs-col-time" style="${isCur ? 'color:#2e7d32;font-weight:700;' : ''}">${timeLines}</td>
+                        <td class="msh-cs-col-info">${lessonCellHtml}</td>
                     </tr>`;
                 }).join('')}</tbody>
             </table>`;
+
+            // Активация бегущей строки только при наведении курсора и только если название не поместилось
+            b.querySelectorAll('.msh-cs-sub-wrap').forEach(wrap => {
+                wrap.addEventListener('mouseenter', () => {
+                    const overflow = wrap.scrollWidth - wrap.clientWidth;
+                    if (overflow > 2) {
+                        const dur = Math.max(1.5, overflow / 35).toFixed(2);
+                        wrap.style.setProperty('--msh-marquee-dist', `-${overflow + 6}px`);
+                        wrap.style.setProperty('--msh-marquee-dur', `${dur}s`);
+                        wrap.classList.add('msh-is-scrolling');
+                    }
+                });
+                wrap.addEventListener('mouseleave', () => {
+                    wrap.classList.remove('msh-is-scrolling');
+                });
+            });
         };
 
         if (csCache.has(cKey)) return draw(csCache.get(cKey));
@@ -988,9 +1209,14 @@ window.initJournalTools = function () {
             let unitId = (classCache.groupId === groupId && classCache.classUnitId) ? classCache.classUnitId : null;
             if (!unitId) {
                 const gd = await (await fetch(`https://authedu.mosreg.ru/api/ej/plan/teacher/v1/groups/${groupId}`, { headers: { ...h, "x-mes-subsystem": "journalw" }, signal: csAbort.signal })).json();
-                unitId = classCache.classUnitId = gd.class_unit_id || gd.class_unit?.id;
+                unitId = gd.class_unit_id || gd.class_unit?.id;
+                if (classCache.groupId === groupId) classCache.classUnitId = unitId;
             }
-            if (!unitId) { root.style.display = 'none'; return; }
+            if (!unitId) {
+                root.dataset.loading = 'false';
+                root.style.display = 'none';
+                return;
+            }
 
             const tid = setTimeout(() => csAbort.abort(), 10000);
             const res = await fetch(`https://authedu.mosreg.ru/api/ej/plan/teacher/v1/schedule_items?academic_year_id=${h.aid}&class_unit_id=${unitId}&from=${iso}&to=${iso}&with_lesson_info=true&with_rooms_info=true&page=1&per_page=50&original=true`, { headers: { ...h, "x-mes-subsystem": "journalw" }, signal: csAbort.signal });
@@ -1007,16 +1233,20 @@ window.initJournalTools = function () {
 
             const missG = [...new Set(list.map(l => l.group_id).filter(id => id && !grpCache.has(id)))];
             if (missG.length) {
-                const gData = await (await fetch(`https://authedu.mosreg.ru/api/ej/plan/teacher/v1/groups?group_ids=${missG.join(',')}&academic_year_id=${h.aid}&per_page=100`, { headers: { ...h, "x-mes-subsystem": "journalw" } })).json();
+                const gData = await (await fetch(`https://authedu.mosreg.ru/api/ej/plan/teacher/v1/groups?group_ids=${missG.join(',')}&academic_year_id=${h.aid}&per_page=100`, { headers: { ...h, "x-mes-subsystem": "journalw" }, signal: csAbort.signal })).json();
                 (Array.isArray(gData) ? gData : (gData.groups || [])).forEach(g => grpCache.set(g.id, g.subject_name || '—'));
             }
 
             const parsed = list.map(l => {
                 const sM = Array.isArray(l.time) ? l.time[0] * 60 + l.time[1] : 0, eM = sM + (l.duration || 40);
+                const sStr = sM ? `${pad(Math.floor(sM/60))}:${pad(sM%60)}` : '';
+                const eStr = sM ? `${pad(Math.floor(eM/60))}:${pad(eM%60)}` : '';
                 return {
                     num: l.study_ordinal || l.lesson_number || 1,
                     start: sM, end: eM,
-                    time: sM ? `${pad(Math.floor(sM/60))}:${pad(sM%60)}–${pad(Math.floor(eM/60))}:${pad(eM%60)}` : '—',
+                    startStr: sStr,
+                    endStr: eStr,
+                    time: sM ? `${sStr}–${eStr}` : '—',
                     sub: grpCache.get(l.group_id) || l.subject_name || '—',
                     room: String(l.room_name || l.room_number || '').replace(/^(каб\.?|кабинет)\s*/i, '').match(/^(\d+[\wа-яА-ЯёЁ-]*)\b/)?.[1] || l.room_name || '—',
                     rawTeacher: l.teacher_name || '',
@@ -1027,6 +1257,7 @@ window.initJournalTools = function () {
             csCache.set(cKey, parsed);
             draw(parsed);
         } catch (e) {
+            root.dataset.loading = 'false';
             if (e.name !== 'AbortError') root.style.display = 'none';
         }
     }

@@ -57,8 +57,7 @@
                 } catch { window.open(url, '_blank'); }
             };
 
-            const wrapper = schoolBtn?.parentElement;
-            (wrapper && wrapper.parentElement === aside) ? aside.insertBefore(btn, wrapper) : aside.prepend(btn);
+            aside.prepend(btn);
         }
 
         let obsStarted = false;
@@ -165,8 +164,7 @@
             const lines = String(t.task || '').split('\n').map(s => s.trim()).filter(Boolean);
             const [title = '', ...body] = lines;
             const tbl = buildTableHtml(t);
-            let h = `<div class="task-block"><div class="task-title"><span class="task-circle" contenteditable="false" data-v="${vIdx}" data-t="${idx}" title="Нажмите, чтобы перегенерировать это задание"><span class="tc-num">${CIRCLED[idx] || `(${idx + 1})`}</span><span class="tc-icon">🔄</span></span><span>${title}</span></div><div class="task-body">`;
-
+            let h = `<div class="task-block"><div class="task-title"><span class="task-circle" contenteditable="false" data-v="${vIdx}" data-t="${idx}" title="Нажмите, чтобы перегенерировать это задание"><span class="tc-num">${CIRCLED[idx] || `${idx + 1}.`}</span><span class="tc-icon">🔄</span></span><span>${title}</span></div><div class="task-body">`;
             if (tbl) {
                 if (!body.length) h += `<div class="task-line-with-table">${tbl}</div>`;
                 else {
@@ -446,7 +444,16 @@
             }
 
             tasks.sort((a, b) => a.id - b.id);
-            $('tasksContainer').innerHTML = tasks.map(t => `<label class="vpr-task-item"><input type="checkbox" class="task-cb" value="${t.key}" checked><span><b>${t.id}.</b> ${t.title}</span></label>`).join('');
+            $('tasksContainer').innerHTML = tasks.map(t => `
+                <label class="vpr-task-item">
+                    <input type="checkbox" class="task-cb" value="${t.key}" checked>
+                    <span class="vpr-task-title-text"><b>${t.id}.</b> ${t.title}</span>
+                    <div class="vpr-qty-box">
+                        <button type="button" class="vpr-qty-btn" data-dir="-1">−</button>
+                        <input type="number" class="vpr-qty-input" value="1" min="1" max="50">
+                        <button type="button" class="vpr-qty-btn" data-dir="1">+</button>
+                    </div>
+                </label>`).join('');
         } catch (err) {
             $('tasksContainer').innerHTML = `<div style="color:#dc2626;">Ошибка: ${err.message}</div>`;
         }
@@ -459,7 +466,14 @@
     async function generate() {
         const className = $('className').value.trim() || 'Класс';
         const students = $('studentsList').value.split('\n').map(s => s.trim()).filter(Boolean);
-        const keys = Array.from(document.querySelectorAll('.task-cb:checked')).map(cb => cb.value);
+        const keys = [];
+        document.querySelectorAll('.vpr-task-item').forEach(row => {
+            const cb = row.querySelector('.task-cb');
+            const qty = Math.max(1, Math.min(50, parseInt(row.querySelector('.vpr-qty-input')?.value, 10) || 1));
+            if (cb?.checked) {
+                for (let i = 0; i < qty; i++) keys.push(cb.value);
+            }
+        });
         if (!students.length || !keys.length) return alert('Укажите учеников и выберите хотя бы одно задание!');
 
         const btn = $('genBtn');
@@ -508,6 +522,23 @@
     $('clearBtn').addEventListener('click', () => { $('studentsList').value = ''; updateCount(); });
     $('selectAllBtn').addEventListener('click', () => document.querySelectorAll('.task-cb').forEach(c => { c.checked = true; }));
     $('deselectAllBtn').addEventListener('click', () => document.querySelectorAll('.task-cb').forEach(c => { c.checked = false; }));
+    $('tasksContainer').addEventListener('click', (e) => {
+        if (e.target.closest('.vpr-qty-box')) e.preventDefault();
+        const btn = e.target.closest('.vpr-qty-btn');
+        if (btn) {
+            const inp = btn.parentElement.querySelector('.vpr-qty-input');
+            inp.value = Math.max(1, Math.min(50, (parseInt(inp.value, 10) || 1) + Number(btn.dataset.dir)));
+        }
+    });
+    $('bulkQtySelect')?.addEventListener('change', (e) => {
+        const val = parseInt(e.target.value, 10);
+        if (val > 0) {
+            document.querySelectorAll('.vpr-task-item').forEach(row => {
+                if (row.querySelector('.task-cb')?.checked) row.querySelector('.vpr-qty-input').value = val;
+            });
+        }
+        e.target.value = '';
+    });
     $('genBtn').addEventListener('click', generate);
 
     updateCount();
