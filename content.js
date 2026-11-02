@@ -25,6 +25,7 @@
         if (typeof initJournalTools === 'function') initJournalTools();
         if (typeof initTools === 'function') initTools();
         if (typeof initExportPupils === 'function') initExportPupils();
+        if (typeof initAllPupils === 'function') initAllPupils();
         if (typeof initKtpHelper === 'function') initKtpHelper();
         if (typeof initSchedulePDF === 'function') initSchedulePDF();
         if (typeof initSelfAnalysis === 'function') initSelfAnalysis();

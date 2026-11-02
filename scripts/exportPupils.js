@@ -36,7 +36,7 @@ window.initExportPupils = function () {
         btn.id = SEL.btnId;
         btn.className = 'mshhlpr-universal-toggle-btn mshhlpr-compact-toggle';
         btn.style.cssText = 'margin-right: 6px !important; flex-shrink: 0 !important; cursor: pointer !important;';
-        btn.innerHTML = `<span class="mshhlpr-universal-toggle-text">👥 Поиск и экспорт учеников</span>`;
+        btn.innerHTML = `<span class="mshhlpr-universal-toggle-text">👥 Поиск и экспорт своих учеников</span>`;
         btn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); openModal(); };
 
         aside.prepend(btn);
@@ -63,7 +63,7 @@ window.initExportPupils = function () {
         ov.innerHTML = `
             <div class="mshhlpr-modal-content" style="width: 1050px; max-width: 96vw; height: 90vh; max-height: 92vh; display: flex; flex-direction: column; overflow: hidden;">
                 <div class="mshhlpr-modal-header" style="flex-shrink: 0; padding: 12px 20px;">
-                    <span style="font-size: 15px;">👥 Поиск и экспорт учеников</span>
+                    <span style="font-size: 15px;">👥 Поиск и экспорт своих учеников</span>
                     <button class="mshhlpr-modal-close">×</button>
                 </div>
                 <div style="padding: 10px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;">
