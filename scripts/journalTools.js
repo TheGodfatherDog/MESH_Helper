@@ -42,62 +42,58 @@ window.initJournalTools = function () {
         return { ov, close };
     };
 
+    let isFetchingStacked = false;
+
+    async function preloadStackedMarks() {
+        if (isFetchingStacked) return;
+        const gId = getGroupId();
+        const cells = Array.from(document.querySelectorAll('div[data-test-component^="markCell-"]:has(svg)'))
+            .filter(c => !(c.dataset.testComponent in cellMarksCache) && /[2-5]/.test(c.textContent));
+        if (!gId || !cells.length) return;
+        isFetchingStacked = true;
+
+        try {
+            const stIds = [...new Set(cells.map(c => c.dataset.testComponent.match(/markCell-(\d+)_/)?.[1]).filter(Boolean))];
+            const h = await getHeaders();
+            const r = await fetch(`https://authedu.mosreg.ru/api/ej/core/teacher/v1/marks?group_ids=${gId}&student_profile_ids=${stIds.join(',')}&per_page=1000&page=1`, { headers: { ...h, "x-mes-subsystem": "journalw" } });
+            const list = r.ok ? await r.json() : [];
+
+            cells.forEach(c => {
+                const id = c.dataset.testComponent, [, sId, lId, cfId] = id.match(/markCell-(\d+)_(\d+)(?:_(\d+))?/) || [];
+                const m = (Array.isArray(list) ? list : []).filter(x => !x.deleted_by && String(x.student_profile_id) === sId && String(x.schedule_lesson_id) === lId && (!cfId || String(x.control_form_id) === cfId) && !isNaN(parseInt(x.name)));
+                cellMarksCache[id] = m.length ? m.map(x => ({ val: +x.name, weight: +x.weight || 1 })) : false;
+            });
+
+            valState.sig = "";
+            highlights();
+            const sb = document.getElementById('mshhlpr-sidebar-body');
+            if (sb && getGroupId() === gId) await marksValidator(sb, gId);
+        } catch (e) {
+            logMV('Ошибка сдвоенных оценок:', e?.message || e);
+        } finally {
+            isFetchingStacked = false;
+        }
+    }
+
     const getWeightedMarks = (row) => {
-        return Array.from(row.querySelectorAll('.R4p7ZXgwQ59R96TEeVm3')).filter(e => {
-            const isFinal = e.closest('div[data-test-component*="final"]') || e.closest('td[class*="final"]');
-            return !isFinal && !isNaN(parseInt(e.textContent));
-        }).flatMap(e => {
-            const val = parseInt(e.textContent.trim());
-            let weight = 1;
-            const markCellDiv = e.closest('div[data-test-component*="markCell"]');
-            
-            if (markCellDiv) {
-                const cellId = markCellDiv.getAttribute('data-test-component') || '';
-                const weightSpan = Array.from(markCellDiv.querySelectorAll('span')).find(s => s !== e && /^\d+$/.test(s.textContent.trim()));
-                if (weightSpan) weight = parseInt(weightSpan.textContent.trim()) || 1;
+        let needPreload = false;
+        const res = Array.from(row.querySelectorAll('.R4p7ZXgwQ59R96TEeVm3')).filter(e =>
+            !e.closest('div[data-test-component*="final"], td[class*="final"]') && !isNaN(parseInt(e.textContent))
+        ).flatMap(e => {
+            const val = +e.textContent.trim(), cell = e.closest('div[data-test-component*="markCell"]');
+            if (!cell) return [{ val, weight: 1 }];
+            const cellId = cell.dataset.testComponent || '';
+            const wSpan = Array.from(cell.querySelectorAll('span')).find(s => s !== e && /^\d+$/.test(s.textContent.trim()));
+            const weight = wSpan ? (+wSpan.textContent.trim() || 1) : 1;
 
-                if (cellId && (markCellDiv.querySelector('svg[viewBox*="stacked"]') || markCellDiv.querySelector('.reW5yKeh505HpxGYfGSw'))) {
-                    if (cellMarksCache[cellId]) return cellMarksCache[cellId];
-                    
-                    const activePopper = document.body.querySelector('div[data-test-component^="markCellMarkHoverPopup"]');
-                    if (markCellDiv.matches(':hover') || activePopper) {
-                        if (activePopper && activePopper.getAttribute('data-test-component')?.includes(cellId.split('-')[1])) {
-                            const marks = Array.from(activePopper.querySelectorAll('.R4p7ZXgwQ59R96TEeVm3')).map(el => ({ val: parseInt(el.textContent.trim()), weight })).filter(m => !isNaN(m.val));
-                            if (marks.length > 0) { cellMarksCache[cellId] = marks; return marks; }
-                        }
-                        return [{ val, weight }];
-                    }
-
-                    let silentStyle = document.getElementById('msh-silent-mark-pop');
-                    if (!silentStyle) {
-                        silentStyle = document.createElement('style');
-                        silentStyle.id = 'msh-silent-mark-pop';
-                        silentStyle.textContent = 'div[data-test-component^="markCellMarkHoverPopup"] { opacity: 0 !important; pointer-events: none !important; }';
-                        (document.head || document.documentElement).appendChild(silentStyle);
-                    }
-
-                    isMuted = true;
-                    markCellDiv.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true }));
-                    
-                    const popper = document.body.querySelector('div[data-test-component^="markCellMarkHoverPopup"]');
-                    const stackedMarks = popper ? Array.from(popper.querySelectorAll('.R4p7ZXgwQ59R96TEeVm3')).map(el => ({ val: parseInt(el.textContent.trim()), weight })).filter(m => !isNaN(m.val)) : [];
-                    
-                    markCellDiv.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true, cancelable: true }));
-                    
-                    clearTimeout(silentMarkTimeout);
-                    silentMarkTimeout = setTimeout(() => { 
-                        document.getElementById('msh-silent-mark-pop')?.remove(); 
-                        isMuted = false; 
-                    }, 50);
-
-                    if (stackedMarks.length > 0) { 
-                        cellMarksCache[cellId] = stackedMarks; 
-                        return stackedMarks; 
-                    }
-                }
+            if (cellId && cell.querySelector('svg')) {
+                if (cellMarksCache[cellId]) return cellMarksCache[cellId];
+                if (!(cellId in cellMarksCache)) needPreload = true;
             }
             return [{ val, weight }];
         });
+        if (needPreload) preloadStackedMarks();
+        return res;
     };
 
     const getGroupId = () => location.href.match(/\/journal\/(?:[a-zA-Z-]+\/)?(\d+)/)?.[1];
@@ -747,6 +743,45 @@ window.initJournalTools = function () {
         return Math.max(1, Math.round((dates.length / months) / 4));
     }
 
+    let isSyncingLayers = false;
+
+    async function syncJournalLayers() {
+        if (isSyncingLayers || !valCfg?.isActive) return;
+
+        const hasExtraCols = document.querySelector('th .LKRuApLWrUdHtvbuDW3y, th .xKVlKLXTU2TC_B8nGg40')
+            || Array.from(document.querySelectorAll('th span')).some(s => /ср\.\s*балл\s*по\s*(теме|итогу)/i.test(s.textContent));
+        if (!hasExtraCols) return;
+
+        const btn = document.querySelector('button[data-test-component="JournalLayersPopupSettings"]');
+        if (!btn) return;
+
+        isSyncingLayers = true;
+        const st = document.createElement('style');
+        st.textContent = 'div[role="tooltip"][data-test-component="settingsSidePage"]{opacity:0!important;pointer-events:none!important}';
+        document.head.appendChild(st);
+
+        try {
+            btn.click();
+            let pop = null;
+            for (let i = 0; i < 20 && !pop; i++) {
+                await sleep(50);
+                pop = document.querySelector('div[role="tooltip"][data-test-component="settingsSidePage"]');
+            }
+            if (!pop) return;
+
+            for (const inp of pop.querySelectorAll('input[data-test-component="settingsSidePageToggleGridSettings"]')) {
+                if (inp.checked) { inp.click(); await sleep(40); }
+            }
+
+            (pop.querySelector('footer button[data-test-component="settingsSidePage"]') || btn).click();
+            await sleep(300);
+            valState.sig = "";
+        } finally {
+            st.remove();
+            isSyncingLayers = false;
+        }
+    }
+
     // --- 4.1. ВАЛИДАТОР ОЦЕНОК (ПРОСЧЕТ И ИНТЕРФЕЙС) ---
     async function marksValidator(container, groupId) {
         const weeklyLessons = detectWeeklyLessons(), recommendedMin = weeklyLessons === 1 ? 3 : 5;
@@ -840,6 +875,7 @@ window.initJournalTools = function () {
 
         if (cMode !== valState.mode) { clearValidation(); valState.sig = ""; valState.mode = cMode; }
         if (!valCfg.isActive || cMode === 'JournalControlPanelView-journalOneLesson') return;
+        syncJournalLayers();
         
         let sParts = [];
         rows.forEach(r => {
@@ -847,7 +883,12 @@ window.initJournalTools = function () {
             if (isFinals) {
                 const gm = sel => { const d = r.querySelector(`div[data-test-component*="${sel}"]`); return d ? (d.querySelector('.R4p7ZXgwQ59R96TEeVm3') || d.querySelector('span'))?.textContent.trim() || 'N' : 'N'; };
                 sParts.push(`${n}:${gm('_yearResult')}:${gm('_yearExam')}:${gm('_yearAttestation')}`);
-            } else sParts.push(`${n}:${getWeightedMarks(r).map(m => `${m.val}${getSuperscript(m.weight)}`).join(',')}`);
+            } else {
+                const fc = r.querySelector('div[data-test-component*="final"]')?.closest('td');
+                const fv = fc?.querySelector('.R4p7ZXgwQ59R96TEeVm3')?.textContent.trim() || 'N';
+                const hc = fc?.className.includes('mshhlpr-final-') ? 1 : 0;
+                sParts.push(`${n}:${getWeightedMarks(r).map(m => `${m.val}${getSuperscript(m.weight)}`).join(',')}:${fv}:${hc}`);
+            }
         });
         
         const sig = (isFinals ? "FINALS:" : "") + sParts.join('|');
@@ -1023,14 +1064,32 @@ window.initJournalTools = function () {
     }
     
     async function emulate(cell, m) {
-        cell.scrollIntoView({block:'center',behavior:'auto'}); await sleep(50);
-        const a = cell.querySelector('div') || cell;
-        ['mousedown','mouseup','click'].forEach(e => a.dispatchEvent(new MouseEvent(e, {bubbles:true})));
-        await sleep(150);
-        let t = document.activeElement !== document.body ? document.activeElement : a; const k = String(m), c = 48+m;
-        ['keydown','keypress','keyup'].forEach(e => t.dispatchEvent(new KeyboardEvent(e, {bubbles:true,cancelable:true,key:k,code:`Digit${k}`,keyCode:c,which:c})));
-        await sleep(100); t = document.activeElement !== document.body ? document.activeElement : t;
-        ['keydown','keypress','keyup'].forEach(e => t.dispatchEvent(new KeyboardEvent(e, {bubbles:true,cancelable:true,key:'Enter',code:'Enter',keyCode:13,which:13})));
+        const div = cell.querySelector('div[data-test-component*="markCell"]') || cell.querySelector('div') || cell;
+        const key = (div.dataset?.testComponent || '').replace('markCell-', '');
+        div.scrollIntoView({ block: 'center', behavior: 'auto' });
+        await sleep(50);
+
+        const r = div.getBoundingClientRect(), opts = { bubbles: true, cancelable: true, view: window, clientX: r.left + 10, clientY: r.top + 10 };
+        div.dispatchEvent(new MouseEvent('mouseover', opts));
+        div.dispatchEvent(new MouseEvent('mousemove', opts));
+        await sleep(100);
+
+        (div.querySelector('.Gx2rJRRg8kbk0aLtCwLp') || div).click();
+
+        let pop = null;
+        for (let i = 0; i < 15 && !pop; i++) {
+            await sleep(60);
+            pop = document.querySelector(`div[data-test-component="markCellAlteration-${key}-FastPopup"]`) || document.querySelector('div[data-test-component*="-FastPopup"]');
+        }
+        if (!pop) throw new Error('FastPopup not found');
+
+        const markBtn = pop.querySelector(`button[data-test-component$="-SimpleMark-${m}"]`);
+        if (!markBtn) throw new Error('Mark btn not found');
+        markBtn.click();
+        await sleep(120);
+
+        const saveBtn = pop.querySelector('button[data-test-component="FastSave"]');
+        (saveBtn && !saveBtn.disabled ? saveBtn : pop.querySelector('button[data-test-component*="-FastPopup-iconButtonInPopover"]'))?.click();
         await sleep(200);
     }
 

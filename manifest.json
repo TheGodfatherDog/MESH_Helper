@@ -2,8 +2,8 @@
     "manifest_version": 3,
     "name": "МЭШ Помогатор",
     "short_name": "mesh_helper",
-    "version": "2.4.3",
-    "version_name": "2.4.3 (от 03.11.2026)",
+    "version": "2.5.0",
+    "version_name": "2.5.0 (от 03.11.2026)",
     "description": "Помощник для работы с Моей Школой Московской области (authedu.mosreg.ru) Автор Храмцов Андрей Константинович.",
     "icons": {
         "16": "icons/icon16.png",
@@ -36,15 +36,13 @@
                 "scripts/libs/qrious.min.js",
                 "scripts/libs/xlsx.full.min.js",
                 "scripts/tools.js",
-                "scripts/exportPupils.js",
-                "scripts/allPupils.js",
                 "scripts/ktpHelper.js",
                 "scripts/schedulePDF.js",
                 "scripts/selfAnalysis.js",
                 "scripts/noHomework.js",
                 "scripts/mathSymbols.js",
-                "scripts/checkScheduleTeachers.js",
                 "scripts/VPRGenerator/vpr.js",
+                "scripts/schoolExplorer.js",
                 "content.js"
             ],
             "run_at": "document_idle"

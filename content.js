@@ -24,15 +24,13 @@
         if (typeof initScheduleZipper === 'function') initScheduleZipper();
         if (typeof initJournalTools === 'function') initJournalTools();
         if (typeof initTools === 'function') initTools();
-        if (typeof initExportPupils === 'function') initExportPupils();
-        if (typeof initAllPupils === 'function') initAllPupils();
         if (typeof initKtpHelper === 'function') initKtpHelper();
         if (typeof initSchedulePDF === 'function') initSchedulePDF();
         if (typeof initSelfAnalysis === 'function') initSelfAnalysis();
         if (typeof initNoHomework === 'function') initNoHomework();
         if (typeof initMathSymbols === 'function') initMathSymbols();
-        if (typeof initCheckScheduleTeachers === 'function') initCheckScheduleTeachers();
         if (typeof initVprGenerator === 'function') initVprGenerator();
+        if (typeof initSchoolExplorer === 'function') initSchoolExplorer();
 
 
         isRunning = true;
